@@ -1,3 +1,6 @@
+"""
+Database manager for the SQLite database.
+"""
 import struct
 from pathlib import Path
 from typing import List, Optional
@@ -10,16 +13,29 @@ from .config import config
 
 logger = logging.getLogger(__name__)
 
+
 class VectorUtils:
+    """Utility class for serializing and deserializing vectors."""
     @staticmethod
     def serialize_vector(vector: List[float]) -> bytes:
-        """Serializes a list of floats into a compact bytes format."""
+        """
+        Serializes a list of floats into a compact bytes format.
+
+        Args:
+            vector: List of floats to serialize.
+
+        Returns:
+            Serialized bytes.
+        """
         return struct.pack(f"{len(vector)}f", *vector)
 
+
 class DatabaseManager:
+    """Manager class for the SQLite database."""
+
     def __init__(self, db_path: Optional[Path] = None):
         """Initialize the database manager.
-        
+
         Args:
             db_path: Optional path to the database file. If None, uses the default from config.
         """
@@ -31,12 +47,12 @@ class DatabaseManager:
         with self.get_connection() as conn:
             # Create the vector table for embeddings
             conn.execute(f"""
-                CREATE VIRTUAL TABLE IF NOT EXISTS note_embeddings 
+                CREATE VIRTUAL TABLE IF NOT EXISTS note_embeddings
                 USING vec0(
                     embedding float[{config.database.vector_dimension}]
                 )
             """)
-            
+
             # Create the notes table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS notes (
@@ -55,18 +71,18 @@ class DatabaseManager:
             conn.enable_load_extension(True)
             sqlite_vec.load(conn)
             conn.enable_load_extension(False)
-            
+
             # Test the setup
             sqlite_version, vec_version = conn.execute(
                 "SELECT sqlite_version(), vec_version()"
             ).fetchone()
-            logger.info(f"Database setup successful. SQLite version: {sqlite_version}, "
-                       f"sqlite-vec version: {vec_version}")
-            
+            logger.info("Database setup successful. SQLite version: %s, "
+                        "sqlite-vec version: %s", sqlite_version, vec_version)
+
             self._init_database()
             conn.close()
         except Exception as e:
-            logger.error(f"Failed to setup database: {e}")
+            logger.error("Failed to setup database: %s", e)
             raise
 
     @contextmanager
@@ -93,14 +109,14 @@ class DatabaseManager:
                     (2, [0.2] * config.database.vector_dimension),
                     (3, [0.3] * config.database.vector_dimension),
                 ]
-                
+
                 # Insert test data
                 for item_id, vector in test_items:
                     conn.execute(
                         "INSERT INTO note_embeddings(rowid, embedding) VALUES (?, ?)",
                         [item_id, VectorUtils.serialize_vector(vector)]
                     )
-                
+
                 # Test query
                 query_vector = [0.2] * config.database.vector_dimension
                 rows = conn.execute("""
@@ -110,11 +126,11 @@ class DatabaseManager:
                     ORDER BY distance
                     LIMIT 1
                 """, [VectorUtils.serialize_vector(query_vector)]).fetchall()
-                
+
                 # Clean up test data
                 conn.execute("DELETE FROM note_embeddings")
-                
+
                 return len(rows) > 0
         except Exception as e:
-            logger.error(f"Vector search test failed: {e}")
+            logger.error("Vector search test failed: %s", e)
             return False
