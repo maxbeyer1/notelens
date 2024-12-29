@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "notelens"
+version = "0.1.0"
+description = "Semantic search for Apple Notes"
+authors = ["Max Beyer <max.beyer09@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
