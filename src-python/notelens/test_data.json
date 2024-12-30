@@ -1,0 +1,67 @@
+{
+  "account_key": 1,
+  "account": "iCloud",
+  "folder_key": 2,
+  "folder": "Notes",
+  "note_id": 3278,
+  "uuid": "924D9731-E2D4-487A-9DD6-059A8A09B379",
+  "primary_key": 1231,
+  "creation_time": "2024-12-24 18:06:56 -0500",
+  "modify_time": "2024-12-24 18:07:14 -0500",
+  "cloudkit_creator_id": "__defaultOwner__",
+  "cloudkit_modifier_id": "__defaultOwner__",
+  "cloudkit_last_modified_device": "MacBook Pro (3)",
+  "is_pinned": false,
+  "is_password_protected": false,
+  "title": "AI agent connection to Todoist to organize inbox, add context to tasks…",
+  "plaintext": "AI agent connection to Todoist to organize inbox, add context to tasks, idk but there’s something here\n\n{#idea} ",
+  "widget_snippet": "AI agent connection to Todoist to organize inbox, add context to tasks, idk but there’s something here\n#idea ",
+  "html": "<div>\n<h1><a id=\"note_3278\">Note 3278</a></h1>\n<div>\n<b>Account:</b> iCloud</div>\n<div>\n<b>Folder:</b> <span><a href=\"#folder_2\">Notes</a></span>\n</div>\n<div>\n<b>Title:</b> AI agent connection to Todoist to organize inbox, add context to tasks…</div>\n<div>\n<b>Created:</b> 2024-12-24 18:06:56 -0500</div>\n<div>\n<b>Modified:</b> 2024-12-24 18:07:14 -0500</div>\n<div>\n<b>CloudKit Creator:</b> </div>\n<div>\n<b>CloudKit Last Modified User:</b> </div>\n<div>\n<b>CloudKit Last Modified Device:</b> MacBook Pro (3)</div>\n<div>\n<b>Tags:</b> #idea</div>\n<div>\n<b>Widget Snippet:</b> AI agent connection to Todoist to organize inbox, add context to tasks, idk but there’s something here\n#idea </div>\n<div class=\"note-content\">\n<h1>AI agent connection to Todoist to organize inbox, add context to tasks, idk but there’s something here<br>\n</h1>\n<br>#idea </div>\n</div>",
+  "note_proto": {
+    "document": {
+      "version": 0,
+      "note": {
+        "noteText": "AI agent connection to Todoist to organize inbox, add context to tasks, idk but there’s something here\n\n￼ ",
+        "attributeRun": [
+          {
+            "length": 103,
+            "paragraphStyle": {
+              "styleType": 0
+            }
+          },
+          {
+            "length": 1,
+            "paragraphStyle": {}
+          },
+          {
+            "length": 1,
+            "paragraphStyle": {},
+            "attachmentInfo": {
+              "attachmentIdentifier": "F0BEA40F-1025-4E1F-AD41-6B9BE36F5156",
+              "typeUti": "com.apple.notes.inlinetextattachment.hashtag"
+            }
+          },
+          {
+            "length": 1,
+            "paragraphStyle": {},
+            "unknownIdentifier": 1735081634
+          }
+        ]
+      }
+    }
+  },
+  "embedded_objects": [
+    {
+      "primary_key": 3277,
+      "note_id": 3278,
+      "uuid": "F0BEA40F-1025-4E1F-AD41-6B9BE36F5156",
+      "type": "com.apple.notes.inlinetextattachment.hashtag",
+      "conforms_to": "inline",
+      "alt_text": "#idea",
+      "token_identifier": "IDEA",
+      "html": "#idea"
+    }
+  ],
+  "hashtags": ["#idea"],
+  "mentions": []
+}

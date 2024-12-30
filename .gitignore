@@ -396,3 +396,5 @@ Cargo.lock
 
 # Ignore the .python-version file as it contains a specially built python version for sqlite extensions
 .python-version
+
+**/repomix-output.*
