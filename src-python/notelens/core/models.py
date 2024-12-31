@@ -48,7 +48,7 @@ class Note(BaseModel):
                     # Then try ISO format
                     return datetime.fromisoformat(value)
                 except ValueError as e:
-                    raise ValueError(f"Invalid datetime format: {e}")
+                    raise ValueError(f"Invalid datetime format: {e}") from e
         raise ValueError(f"Expected string or datetime, got {type(value)}")
 
     def to_db_dict(self) -> dict:
@@ -75,7 +75,8 @@ class Note(BaseModel):
                 db_dict['embedded_objects'] = json.loads(
                     db_dict['embedded_objects'])
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in embedded_objects: {e}")
+                raise ValueError(
+                    f"Invalid JSON in embedded_objects: {e}") from e
 
         # Convert comma-separated strings to lists
         if isinstance(db_dict.get('hashtags'), str):

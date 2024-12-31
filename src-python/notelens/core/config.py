@@ -15,9 +15,19 @@ class DatabaseConfig:
 
 
 @dataclass
+class EmbeddingConfig:
+    """Configuration for remote embeddings."""
+    # Remote embeddings settings
+    # API key defined in .env file
+    client_name: str = "openai"
+    model_name: str = "text-embedding-3-small"
+
+
+@dataclass
 class Config:
     """Global configuration for the application."""
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
+    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
 
     def __post_init__(self):
         # Ensure the database directory exists

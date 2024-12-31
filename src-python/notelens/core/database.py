@@ -68,9 +68,25 @@ class DatabaseManager:
         """Set up the database with required extensions and schema."""
         try:
             conn = sqlite3.connect(str(self.db_path))
+
+            conn.execute("PRAGMA debug_logic_error = true;")
+
             conn.enable_load_extension(True)
-            sqlite_vec.load(conn)
-            conn.enable_load_extension(False)
+
+            # Get the package root directory (one level up from core)
+            package_root = Path(__file__).parent.parent
+            lib_dir = package_root / "lib"
+
+            # Verify the path exists
+            extension_path = lib_dir / "rembed0.dylib"
+            if not extension_path.exists():
+                raise FileNotFoundError(
+                    f"SQLite extension not found at {extension_path}. "
+                    "Please ensure the extension file is in the correct location."
+                )
+
+            conn.load_extension(str(extension_path))  # Load sqlite-rembed
+            sqlite_vec.load(conn)  # Load sqlite-vec
 
             # Test the setup
             sqlite_version, vec_version = conn.execute(
@@ -79,7 +95,47 @@ class DatabaseManager:
             logger.info("Database setup successful. SQLite version: %s, "
                         "sqlite-vec version: %s", sqlite_version, vec_version)
 
+            # Verify rembed extension is loaded properly
+            rembed_version = conn.execute("SELECT rembed_version()").fetchone()
+            logger.info("sqlite-rembed version: %s", rembed_version[0])
+
+            # First, try to verify if the virtual table exists
+            try:
+                conn.execute("SELECT * FROM temp.rembed_clients LIMIT 1")
+            except sqlite3.OperationalError:
+                logger.warning(
+                    "rembed_clients table not found, it should be created by the extension")
+                raise
+
+            # Now try to insert the client
+            conn.execute("""
+                INSERT INTO temp.rembed_clients(name, options)
+                VALUES ('text-embedding-3-small', 'openai')
+            """)
+
+            # Verify the insertion worked
+            client_check = conn.execute(
+                "SELECT * FROM temp.rembed_clients WHERE name = 'text-embedding-3-small'"
+            ).fetchone()
+            if client_check:
+                logger.info("Successfully registered embedding client")
+
+            # Test the embedding generation with a separate query
+            test_result = conn.execute("""
+                SELECT rembed('text-embedding-3-small', 'This is a test sentence')
+            """).fetchone()
+
+            if test_result and test_result[0]:
+                logger.info("Rembed extension test successful - generated embedding of length %d",
+                            len(struct.unpack(f"{config.database.vector_dimension}f", test_result[0])))
+            else:
+                logger.error(
+                    "Rembed extension test failed - result: %s", test_result)
+
+            # Initialize the database schema
             self._init_database()
+
+            conn.enable_load_extension(False)
             conn.close()
         except Exception as e:
             logger.error("Failed to setup database: %s", e)
