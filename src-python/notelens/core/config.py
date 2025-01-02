@@ -26,6 +26,11 @@ class EmbeddingConfig:
 @dataclass
 class Config:
     """Global configuration for the application."""
+    # Environment mode
+    # DEV: Development mode (increase logging, etc.)
+    # PROD: Production mode (minimal output, highest efficiency)
+    env_mode = "DEV"
+
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
 

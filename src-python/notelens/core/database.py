@@ -4,7 +4,6 @@ Database manager for the SQLite database.
 import struct
 from pathlib import Path
 from typing import List, Optional
-from contextlib import contextmanager
 import logging
 import sqlite3
 import sqlite_vec

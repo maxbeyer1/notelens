@@ -3,9 +3,11 @@ Main entry point for NoteLens Python backend.
 """
 import logging
 import json
+from pathlib import Path
 from notelens.core.database import DatabaseManager
 from notelens.core.models import Note
-from notelens.notes.service import NotesService
+from notelens.notes.service import NoteService
+from notelens.notes.tracker import NoteTracker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,27 +29,30 @@ def main():
             logger.error("Vector search test failed!")
 
         # Initialize the notes service
-        notes_service = NotesService(db_manager)
+        note_service = NoteService(db_manager)
+        note_tracker = NoteTracker(note_service)
 
-        # Load test data from a JSON file
-        with open("test_data.json") as f:
-            note_data = json.load(f)
+        # Load test parser output from JSON file
+        parser_output_path = Path(__file__).parent / "all_notes_1.json"
+        with open(parser_output_path) as f:
+            parser_data = json.load(f)
 
         try:
-            # Create a test note
-            note = Note(**note_data)
-            created_note = notes_service.create_note(note)
-            logger.info("Created note: %s", created_note.title)
+            # Process notes using the tracker
+            stats = note_tracker.process_notes(parser_data)
 
-            # Test search functionality
-            search_results = notes_service.search_notes("AI agent")
-            logger.info("Search results: %d found", len(search_results))
+            # Log the results
+            logger.info("Note processing test complete!")
+            logger.info("Processing statistics:")
+            logger.info("  Total notes: %d", stats['total'])
+            logger.info("  New notes: %d", stats['new'])
+            logger.info("  Modified notes: %d", stats['modified'])
+            logger.info("  Deleted notes: %d", stats['deleted'])
+            logger.info("  Notes in trash: %d", stats['in_trash'])
+            logger.info("  Errors: %d", stats['errors'])
 
-            # Clean up
-            notes_service.delete_note(created_note.uuid)
-            logger.info("Deleted note: %s", created_note.title)
         except Exception as e:
-            logger.error("Failed to create note: %s", e)
+            logger.error("Failed to process notes: %s", e)
             raise
 
     except Exception as e:
