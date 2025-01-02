@@ -29,9 +29,9 @@ class Note(BaseModel):
     title: str
     plaintext: str
     html: str
-    embedded_objects: List[Dict] = Field(default_factory=list)
-    hashtags: List[str] = Field(default_factory=list)
-    mentions: List[str] = Field(default_factory=list)
+    embedded_objects: Optional[List[Dict]] = Field(default_factory=list)
+    hashtags: Optional[List[str]] = Field(default_factory=list)
+    mentions: Optional[List[str]] = Field(default_factory=list)
 
     @field_validator('creation_time', 'modify_time', mode='before')
     @classmethod

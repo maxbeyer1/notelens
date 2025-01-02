@@ -57,36 +57,67 @@ class DatabaseManager:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS notes (
                     id INTEGER PRIMARY KEY,
+                    uuid TEXT NOT NULL,
                     title TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    account_key INTEGER NOT NULL,
+                    account TEXT NOT NULL,
+                    folder_key INTEGER NOT NULL,
+                    folder TEXT NOT NULL,
+                    note_id INTEGER NOT NULL,
+                    primary_key INTEGER NOT NULL,
+                    creation_time TIMESTAMP NOT NULL,
+                    modify_time TIMESTAMP NOT NULL,
+                    cloudkit_creator_id TEXT,
+                    cloudkit_modifier_id TEXT,
+                    cloudkit_last_modified_device TEXT,
+                    is_pinned BOOLEAN NOT NULL,
+                    is_password_protected BOOLEAN NOT NULL,
+                    plaintext TEXT NOT NULL,
+                    html TEXT NOT NULL,
+                    embedded_objects TEXT,
+                    hashtags TEXT,
+                    mentions TEXT
                 )
             """)
 
-    def setup(self) -> None:
-        """Set up the database with required extensions and schema."""
-        try:
+    def _ensure_connection(self) -> sqlite3.Connection:
+        """Ensure we have a working connection with extensions loaded."""
+        if self._connection is None:
             conn = sqlite3.connect(str(self.db_path))
-
-            conn.execute("PRAGMA debug_logic_error = true;")
-
+            conn.row_factory = sqlite3.Row
             conn.enable_load_extension(True)
 
-            # Get the package root directory (one level up from core)
+            # Load extensions
             package_root = Path(__file__).parent.parent
             lib_dir = package_root / "lib"
+            extension_path = lib_dir / "rembed0.dylib"
 
             # Verify the path exists
             extension_path = lib_dir / "rembed0.dylib"
             if not extension_path.exists():
                 raise FileNotFoundError(
-                    f"SQLite extension not found at {extension_path}. "
+                    f"sqlite-rembed extension not found at {extension_path}. "
                     "Please ensure the extension file is in the correct location."
                 )
 
-            conn.load_extension(str(extension_path))  # Load sqlite-rembed
-            sqlite_vec.load(conn)  # Load sqlite-vec
+            conn.load_extension(str(extension_path))
+            sqlite_vec.load(conn)
+
+            # Register client in temp table
+            conn.execute("""
+                INSERT INTO temp.rembed_clients(name, options)
+                VALUES (?, ?)
+            """, [config.embedding.model_name, config.embedding.client_name])
+
+            # conn.enable_load_extension(False)
+            self._connection = conn
+
+        return self._connection
+
+    def setup(self) -> None:
+        """Initial database setup."""
+        try:
+            conn = self._ensure_connection()
 
             # Test the setup
             sqlite_version, vec_version = conn.execute(
@@ -98,27 +129,6 @@ class DatabaseManager:
             # Verify rembed extension is loaded properly
             rembed_version = conn.execute("SELECT rembed_version()").fetchone()
             logger.info("sqlite-rembed version: %s", rembed_version[0])
-
-            # First, try to verify if the virtual table exists
-            try:
-                conn.execute("SELECT * FROM temp.rembed_clients LIMIT 1")
-            except sqlite3.OperationalError:
-                logger.warning(
-                    "rembed_clients table not found, it should be created by the extension")
-                raise
-
-            # Now try to insert the client
-            conn.execute("""
-                INSERT INTO temp.rembed_clients(name, options)
-                VALUES ('text-embedding-3-small', 'openai')
-            """)
-
-            # Verify the insertion worked
-            client_check = conn.execute(
-                "SELECT * FROM temp.rembed_clients WHERE name = 'text-embedding-3-small'"
-            ).fetchone()
-            if client_check:
-                logger.info("Successfully registered embedding client")
 
             # Test the embedding generation with a separate query
             test_result = conn.execute("""
@@ -135,25 +145,21 @@ class DatabaseManager:
             # Initialize the database schema
             self._init_database()
 
-            conn.enable_load_extension(False)
-            conn.close()
+            # conn.enable_load_extension(False)
+            # conn.close()
         except Exception as e:
             logger.error("Failed to setup database: %s", e)
             raise
 
-    @contextmanager
     def get_connection(self):
-        """Context manager for database connections."""
-        conn = None
-        try:
-            conn = sqlite3.connect(str(self.db_path))
-            conn.enable_load_extension(True)
-            sqlite_vec.load(conn)
-            conn.enable_load_extension(False)
-            yield conn
-        finally:
-            if conn:
-                conn.close()
+        """Get the database connection."""
+        return self._ensure_connection()
+
+    def close(self):
+        """Close the database connection."""
+        if self._connection:
+            self._connection.close()
+            self._connection = None
 
     def test_vector_search(self) -> bool:
         """Test vector search functionality."""
