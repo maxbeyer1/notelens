@@ -8,6 +8,7 @@ from notelens.core.database import DatabaseManager
 from notelens.core.models import Note
 from notelens.notes.service import NoteService
 from notelens.notes.tracker import NoteTracker
+from notelens.notes.parser.parser import NotesParser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,27 +33,33 @@ def main():
         note_service = NoteService(db_manager)
         note_tracker = NoteTracker(note_service)
 
-        # Load test parser output from JSON file
-        parser_output_path = Path(__file__).parent / "all_notes_1.json"
-        with open(parser_output_path) as f:
-            parser_data = json.load(f)
-
+        # Initialize and test the parser
         try:
-            # Process notes using the tracker
-            stats = note_tracker.process_notes(parser_data)
+            parser = NotesParser()
+            logger.info("Parser initialized successfully")
 
-            # Log the results
-            logger.info("Note processing test complete!")
-            logger.info("Processing statistics:")
-            logger.info("  Total notes: %d", stats['total'])
-            logger.info("  New notes: %d", stats['new'])
-            logger.info("  Modified notes: %d", stats['modified'])
-            logger.info("  Deleted notes: %d", stats['deleted'])
-            logger.info("  Notes in trash: %d", stats['in_trash'])
-            logger.info("  Errors: %d", stats['errors'])
+            # Parse the Notes database
+            parser_data = parser.parse_database()
+            if parser_data:
+                logger.info("Successfully parsed Notes database")
+
+                # Process notes using the tracker
+                stats = note_tracker.process_notes(parser_data)
+
+                # Log the results
+                logger.info("Note processing test complete!")
+                logger.info("Processing statistics:")
+                logger.info("  Total notes: %d", stats['total'])
+                logger.info("  New notes: %d", stats['new'])
+                logger.info("  Modified notes: %d", stats['modified'])
+                logger.info("  Deleted notes: %d", stats['deleted'])
+                logger.info("  Notes in trash: %d", stats['in_trash'])
+                logger.info("  Errors: %d", stats['errors'])
+            else:
+                logger.error("Parser returned no data")
 
         except Exception as e:
-            logger.error("Failed to process notes: %s", e)
+            logger.error("Parser test failed: %s", str(e))
             raise
 
     except Exception as e:

@@ -404,3 +404,7 @@ vendor/*
 
 # Don't ignore the compiled extension
 !src-python/notelens/lib/rembed0.dylib
+
+# Test data
+src-python/notelens/all_notes_1.json
+src-python/notelens/test_data.json
