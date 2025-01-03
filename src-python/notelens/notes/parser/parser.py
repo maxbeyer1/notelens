@@ -193,8 +193,8 @@ class NotesParser:
                 raise OutputError("Invalid JSON structure in parser output")
 
             # Print summary in dev mode
-            if config.env_mode == "DEV":
-                self._print_truncated_json(data)
+            # if config.env_mode == "DEV":
+            #     self._print_truncated_json(data)
 
             return data
 

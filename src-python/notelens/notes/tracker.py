@@ -48,9 +48,16 @@ class NoteTracker:
         existing_uuids = set()
         # Get all notes that exist in database
         if current_notes:
-            existing_notes = self.note_service.get_notes_by_uuids(
-                list(current_notes.keys()))
+            # existing_notes = self.note_service.get_notes_by_uuids(
+            #     list(current_notes.keys()))
+            # print("current_notes.keys():", list(current_notes.keys()))
+            # existing_uuids = {note.uuid for note in existing_notes}
+
+            note_uuids = [note_data['uuid']
+                          for note_data in current_notes.values()]
+            existing_notes = self.note_service.get_notes_by_uuids(note_uuids)
             existing_uuids = {note.uuid for note in existing_notes}
+
         return existing_uuids
 
     def process_notes(self, parser_data: Dict) -> Dict:
@@ -92,7 +99,7 @@ class NoteTracker:
 
         # Process current notes (excluding trash)
         current_notes: Dict[str, Dict] = {}
-        for uuid, note_data in notes_data.items():
+        for id_key, note_data in notes_data.items():
             try:
                 if not note_data.get('uuid'):
                     logger.warning("Skipping note without UUID")
@@ -105,7 +112,7 @@ class NoteTracker:
                                  note_data.get('title'))
                     continue
 
-                current_notes[uuid] = note_data
+                current_notes[note_data['uuid']] = note_data
 
             except Exception as e:
                 logger.error("Error processing note data: %s",
@@ -116,6 +123,7 @@ class NoteTracker:
         try:
             # Get existing notes
             existing_uuids = self._get_existing_note_uuids(current_notes)
+            print("existing_uuids:", existing_uuids)
 
             # Get current note items
             note_items = current_notes.items()

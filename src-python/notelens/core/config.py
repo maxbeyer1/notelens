@@ -64,6 +64,15 @@ class AppleNotesConfig:
 
 
 @dataclass
+class WatcherConfig:
+    """Configuration for the database watcher."""
+    # How long to wait between processing changes (in seconds)
+    cooldown_seconds: int = 2
+    # Whether to start watching automatically
+    auto_start: bool = True
+
+
+@dataclass
 class Config:
     """Global configuration for the application."""
     # Environment mode
@@ -75,6 +84,7 @@ class Config:
     embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
     ruby: RubyConfig = field(default_factory=RubyConfig)
     apple_notes: AppleNotesConfig = field(default_factory=AppleNotesConfig)
+    watcher: WatcherConfig = field(default_factory=WatcherConfig)
 
     def __post_init__(self):
         # Ensure the database directory exists
