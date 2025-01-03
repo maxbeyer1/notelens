@@ -23,6 +23,10 @@ class EmbeddingConfig:
     client_name: str = "openai"
     model_name: str = "text-embedding-3-small"
 
+    # Testing configuration
+    use_fake_embeddings: bool = True  # Toggle for fake embeddings
+    fake_embedding_dim: int = 1536     # Match OpenAI's dimension
+
 
 @dataclass
 class RubyConfig:

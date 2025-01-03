@@ -2,10 +2,7 @@
 Main entry point for NoteLens Python backend.
 """
 import logging
-import json
-from pathlib import Path
 from notelens.core.database import DatabaseManager
-from notelens.core.models import Note
 from notelens.notes.service import NoteService
 from notelens.notes.tracker import NoteTracker
 from notelens.notes.parser.parser import NotesParser
@@ -57,6 +54,15 @@ def main():
                 logger.info("  Errors: %d", stats['errors'])
             else:
                 logger.error("Parser returned no data")
+
+            # Test search functionality
+            search_results = note_service.search_notes("test")
+
+            if search_results:
+                logger.info("Search test successful, found %d notes",
+                            len(search_results))
+            else:
+                logger.error("Search test failed!")
 
         except Exception as e:
             logger.error("Parser test failed: %s", str(e))

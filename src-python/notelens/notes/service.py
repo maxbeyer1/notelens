@@ -3,10 +3,9 @@ Service layer for managing notes and vector search operations.
 """
 from typing import List, Optional, Dict
 import logging
-from datetime import datetime
 
 from ..core.models import Note
-from ..core.database import DatabaseManager
+from ..core.database import DatabaseManager, VectorUtils, FakeEmbeddingGenerator
 from ..core.config import config
 
 logger = logging.getLogger(__name__)
@@ -24,6 +23,31 @@ class NoteService:
         """
         self.db_manager = db_manager
         logger.info("Note service initialized")
+
+    def _generate_embedding(self, text: str, conn) -> bytes:
+        """
+        Generate embedding for text using either real or fake embeddings.
+
+        Args:
+            text: Text to generate embedding for
+            conn: Database connection for rembed calls
+
+        Returns:
+            Serialized embedding vector
+        """
+        if config.embedding.use_fake_embeddings:
+            # Generate fake embedding
+            vector = FakeEmbeddingGenerator.generate_fake_embedding(
+                text,
+                dimension=config.embedding.fake_embedding_dim
+            )
+            return VectorUtils.serialize_vector(vector)
+        else:
+            # Use real embedding via rembed
+            return conn.execute(
+                "SELECT rembed(?, ?)",
+                [config.embedding.model_name, text]
+            ).fetchone()[0]
 
     def create_note(self, note: Note) -> Note:
         """
@@ -61,11 +85,8 @@ class NoteService:
 
                 note_id = cursor.lastrowid
 
-                # Generate and store embedding
-                embedding = conn.execute(
-                    "SELECT rembed(?, ?)",
-                    [config.embedding.model_name, note.plaintext]
-                ).fetchone()[0]
+                # Generate embedding
+                embedding = self._generate_embedding(note.plaintext, conn)
 
                 # Store embedding
                 conn.execute(
@@ -124,17 +145,15 @@ class NoteService:
                 if cursor.rowcount == 0:
                     raise ValueError(f"Note with UUID {note.uuid} not found")
 
-                # Update embedding
                 note_id = conn.execute(
                     "SELECT id FROM notes WHERE uuid = ?",
                     [note.uuid]
                 ).fetchone()[0]
 
-                embedding = conn.execute(
-                    "SELECT rembed(?, ?)",
-                    [config.embedding.model_name, note.plaintext]
-                ).fetchone()[0]
+                # Generate new embedding
+                embedding = self._generate_embedding(note.plaintext, conn)
 
+                # Update embedding
                 conn.execute(
                     "UPDATE note_embeddings SET embedding = ? WHERE rowid = ?",
                     [embedding, note_id]

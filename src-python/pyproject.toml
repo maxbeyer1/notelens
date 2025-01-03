@@ -10,6 +10,7 @@ python = "^3.12"
 sqlite-vec = "^0.1.6"
 pydantic = "^2.10.4"
 tqdm = "^4.67.1"
+numpy = "^2.2.1"
 
 
 [build-system]

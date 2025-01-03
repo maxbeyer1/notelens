@@ -4,9 +4,11 @@ Database manager for the SQLite database.
 import struct
 from pathlib import Path
 from typing import List, Optional
+import hashlib
 import logging
 import sqlite3
 import sqlite_vec
+import numpy as np
 
 from .config import config
 
@@ -27,6 +29,33 @@ class VectorUtils:
             Serialized bytes.
         """
         return struct.pack(f"{len(vector)}f", *vector)
+
+
+class FakeEmbeddingGenerator:
+    """Generates deterministic fake embeddings for testing."""
+
+    @staticmethod
+    def generate_fake_embedding(text: str, dimension: int = 1536) -> List[float]:
+        """
+        Generate a deterministic fake embedding from text.
+
+        Args:
+            text: Input text to generate embedding for
+            dimension: Desired embedding dimension
+
+        Returns:
+            List of floats representing the fake embedding
+        """
+        # Use text hash as random seed for reproducibility
+        text_hash = hashlib.md5(text.encode()).hexdigest()
+        seed = int(text_hash[:8], 16)
+        np.random.seed(seed)
+
+        # Generate normalized random vector
+        vector = np.random.normal(size=dimension)
+        normalized = vector / np.linalg.norm(vector)
+
+        return normalized.tolist()
 
 
 class DatabaseManager:
