@@ -48,11 +48,6 @@ class NoteTracker:
         existing_uuids = set()
         # Get all notes that exist in database
         if current_notes:
-            # existing_notes = self.note_service.get_notes_by_uuids(
-            #     list(current_notes.keys()))
-            # print("current_notes.keys():", list(current_notes.keys()))
-            # existing_uuids = {note.uuid for note in existing_notes}
-
             note_uuids = [note_data['uuid']
                           for note_data in current_notes.values()]
             existing_notes = self.note_service.get_notes_by_uuids(note_uuids)

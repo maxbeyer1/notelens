@@ -2,7 +2,6 @@
 Main entry point for NoteLens Python backend.
 """
 import logging
-from pathlib import Path
 import signal
 import sys
 import time
@@ -20,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 # Global variables
-db_manager = None
-watcher_service = None
-note_service = None
-note_tracker = None
+db_manager = None  # pylint: disable=invalid-name
+watcher_service = None  # pylint: disable=invalid-name
+note_service = None  # pylint: disable=invalid-name
+note_tracker = None  # pylint: disable=invalid-name
 change_queue = Queue()
 
 
@@ -71,6 +70,7 @@ def cleanup(signum=None, frame=None):
 
 def main():
     """Main entry point for testing the database setup."""
+    # pylint: disable=global-statement
     global db_manager, watcher_service, note_service, note_tracker
 
     try:
