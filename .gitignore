@@ -409,3 +409,7 @@ vendor/*
 # Test data
 src-python/notelens/all_notes_1.json
 src-python/notelens/test_data.json
+
+# Vite build output
+dist/
+dist-ssr/
