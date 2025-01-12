@@ -2,6 +2,7 @@
 Watchdog-based file system watcher for the Apple Notes SQLite database.
 """
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
@@ -9,6 +10,7 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from watchdog.observers import Observer
 
 from .config import config
+from .message_bus import MessageBus, MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +48,14 @@ class WatcherService:
     consistent configuration patterns.
     """
 
-    def __init__(self, change_callback: Callable[[Path], None]):
+    def __init__(self, message_bus: MessageBus):
         """
         Initialize the watcher service.
 
         Args:
-            change_callback: Callback function to handle database changes
+            message_bus (MessageBus): The message bus instance from the main app.
         """
-        self.change_callback = change_callback
+        self.message_bus = message_bus
         self.observer = Observer()
         self.running = False
 
@@ -69,9 +71,14 @@ class WatcherService:
         )
 
     def _handle_change(self) -> None:
-        """Handle database changes by calling the provided callback."""
+        """Handle database changes by sending a message on the bus."""
         try:
-            self.change_callback()
+            asyncio.create_task(
+                self.message_bus.send(
+                    MessageType.WATCHER_CHANGE,
+                    {"timestamp": datetime.now().timestamp()}
+                )
+            )
         except Exception as e:
             logger.error("Error handling database change: %s",
                          str(e), exc_info=True)

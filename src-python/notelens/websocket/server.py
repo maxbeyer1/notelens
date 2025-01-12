@@ -11,6 +11,9 @@ from http import HTTPStatus
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
+from .handlers.base import WebSocketHandler
+from ..core.message_bus import MessageBus
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +23,7 @@ class NoteLensWebSocket:
     Handles communication between Tauri frontend and Python backend.
 
     Attributes:
+        message_bus (MessageBus): Message bus instance for communication.
         host (str): Hostname for the WebSocket server.
         port (int): Port number for the WebSocket server.
         clients (Set[ServerConnection]): Set of connected clients.
@@ -37,12 +41,31 @@ class NoteLensWebSocket:
         ```
     """
 
-    def __init__(self, host: str = "localhost", port: int = 8000):
+    def __init__(self, message_bus: MessageBus, host: str = "localhost", port: int = 8000):
         self.host = host
         self.port = port
+        self.message_bus = message_bus
         self.clients: Set[ServerConnection] = set()
         self.server = None
         self._shutdown_event = None
+
+        # Register message handlers
+        self.handlers: Dict[str, WebSocketHandler] = self._setup_handlers()
+
+    def _setup_handlers(self) -> Dict[str, WebSocketHandler]:
+        """Initialize message handlers."""
+        # Import handlers here to avoid circular imports
+        # from .handlers.search import SearchHandler
+        # from .handlers.system import SystemControlHandler
+        from .handlers.ping import PingHandler
+
+        return {
+            # "search_request": SearchHandler(self.message_bus),
+            # "watcher_control": SystemControlHandler(self.message_bus),
+            # "get_system_status": SystemControlHandler(self.message_bus),
+            "ping": PingHandler(self.message_bus),
+            # Add other handlers as needed
+        }
 
     async def start(self):
         """Start the WebSocket server."""
@@ -136,39 +159,45 @@ class NoteLensWebSocket:
             await self.send_error(websocket, "invalid_message", "Invalid message format")
             return
 
-        # Handle different message types
-        handler = self._get_message_handler(data["type"])
+        # Get appropriate handler for message type
+        handler = self.handlers.get(data["type"])
         if handler:
             try:
-                await handler(websocket, data)
+                await handler.handle(websocket, data)
             except Exception as e:
                 logger.error("Error in message handler: %s", str(e))
                 await self.send_error(
                     websocket,
                     "handler_error",
-                    f"Error processing {data['type']}: {str(e)}"
+                    f"Error processing {data['type']}: {str(e)}",
+                    request_id=data.get("requestId")
                 )
         else:
-            await self.send_error(websocket, "unknown_type", f"Unknown message type: {data['type']}")
+            await self.send_error(
+                websocket,
+                "unknown_type",
+                f"Unknown message type: {data['type']}",
+                request_id=data.get("requestId")
+            )
 
-    def _get_message_handler(self, message_type: str):
-        """Get the appropriate handler for a message type."""
-        # Message handler mapping will be implemented as we add functionality
-        handlers = {
-            "ping": self._handle_ping,
-            # Additional handlers will be added here
-        }
-        return handlers.get(message_type)
+    # def _get_message_handler(self, message_type: str):
+    #     """Get the appropriate handler for a message type."""
+    #     # Message handler mapping will be implemented as we add functionality
+    #     handlers = {
+    #         "ping": self._handle_ping,
+    #         # Additional handlers will be added here
+    #     }
+    #     return handlers.get(message_type)
 
-    async def _handle_ping(self, websocket: ServerConnection, data: Dict):
-        """Handle ping messages (for testing)."""
-        await self.send_message(websocket, {
-            "type": "pong",
-            "requestId": data.get("requestId"),
-            "timestamp": datetime.now().timestamp(),
-            "payload": None,
-            "status": "success"
-        })
+    # async def _handle_ping(self, websocket: ServerConnection, data: Dict):
+    #     """Handle ping messages (for testing)."""
+    #     await self.send_message(websocket, {
+    #         "type": "pong",
+    #         "requestId": data.get("requestId"),
+    #         "timestamp": datetime.now().timestamp(),
+    #         "payload": None,
+    #         "status": "success"
+    #     })
 
     @staticmethod
     def _validate_message(data: Dict) -> bool:
@@ -206,27 +235,17 @@ class NoteLensWebSocket:
         await websocket.send(json.dumps(error_message))
 
 
-async def run_test_server():
-    """Run a test instance of the WebSocket server."""
-    logging.basicConfig(level=logging.INFO)
-    server = NoteLensWebSocket(host="localhost", port=8000)
+# async def run_test_server():
+#     """Run a test instance of the WebSocket server."""
+#     logging.basicConfig(level=logging.INFO)
+#     server = NoteLensWebSocket(host="localhost", port=8000)
 
-    try:
-        await server.start()
-    except KeyboardInterrupt:
-        await server.shutdown()
+#     try:
+#         await server.start()
+#     except KeyboardInterrupt:
+#         await server.shutdown()
 
 if __name__ == "__main__":
     # This allows us to run the WebSocket server directly for testing
-    asyncio.run(run_test_server())
-
-
-# Example usage in main.py:
-"""
-async def run_websocket_server():
-    server = NoteLensWebSocket()
-    await server.start()
-
-if __name__ == "__main__":
-    asyncio.run(run_websocket_server())
-"""
+    # asyncio.run(run_test_server())
+    pass
