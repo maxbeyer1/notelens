@@ -59,7 +59,15 @@ class FakeEmbeddingGenerator:
 
 
 class DatabaseManager:
-    """Manager class for the SQLite database."""
+    """Manager class for the SQLite database.
+
+    Initializes the database schema and provides methods for interacting with the database.
+    Sets up SQLite extensions and ensures the database is properly configured.
+
+    Attributes:
+        db_path: Path to the SQLite database file.
+        _connection: Optional connection to the SQLite database.
+    """
 
     def __init__(self, db_path: Optional[Path] = None):
         """Initialize the database manager.
