@@ -71,12 +71,6 @@ class NoteLensWebSocket:
         """Start the WebSocket server."""
         self._shutdown_event = asyncio.Event()
 
-        # Setup signal handlers
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(
-                sig, lambda s=sig: asyncio.create_task(self.shutdown(s)))
-
         try:
             self.server = await serve(
                 self.handle_client,

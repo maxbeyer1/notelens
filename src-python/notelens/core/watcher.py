@@ -102,7 +102,7 @@ class WatcherService:
         self.observer.start()
         self.running = True
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         """Stop watching for changes."""
         if not self.running:
             logger.warning("Watcher not running")
@@ -110,7 +110,8 @@ class WatcherService:
 
         logger.info("Stopping Notes database watcher")
         self.observer.stop()
-        self.observer.join()
+        # Run the blocking join in a thread pool
+        await asyncio.get_event_loop().run_in_executor(None, self.observer.join)
         self.running = False
 
     def __enter__(self):
