@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
 const Welcome = () => {
@@ -7,34 +8,85 @@ const Welcome = () => {
     console.log("Starting setup process...");
   };
 
+  // Subtle fade up animation
+  const fadeUp = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 1.2, ease: [0.23, 1, 0.32, 1] }, // Apple-like easing
+  };
+
+  // Container for staggered children
+  const container = {
+    animate: {
+      transition: {
+        staggerChildren: 0.4,
+        delayChildren: 0.6,
+      },
+    },
+  };
+
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-white">
+    <motion.div
+      className="h-screen w-screen flex flex-col items-center justify-center bg-white"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.6, ease: [0.23, 1, 0.32, 1] }}
+    >
       {/* Main Content */}
-      <div className="flex flex-col items-center space-y-16">
+      <motion.div
+        className="flex flex-col items-center space-y-16"
+        variants={container}
+        initial="initial"
+        animate="animate"
+      >
         {/* App Name */}
-        <h1 className="text-5xl font-medium text-gray-900">NoteLens</h1>
+        <motion.div variants={fadeUp}>
+          <motion.h1
+            className="text-5xl font-medium text-gray-900"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{
+              duration: 1.4,
+              ease: [0.23, 1, 0.32, 1],
+              scale: { duration: 1.6 },
+            }}
+          >
+            NoteLens
+          </motion.h1>
+        </motion.div>
 
         {/* Single, Impactful Message */}
-        <p className="text-2xl text-gray-500">
+        <motion.p variants={fadeUp} className="text-2xl text-gray-500">
           Your notes. Brilliantly searchable.
-        </p>
+        </motion.p>
 
         {/* Action Button */}
-        <Button
-          onClick={handleGetStarted}
-          className="px-8 py-6 text-lg bg-[#0066cc] hover:bg-[#0055aa] text-white rounded-lg 
-                     transition-colors duration-200 mt-8"
+        <motion.div
+          variants={fadeUp}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
         >
-          Continue
-        </Button>
-      </div>
+          <Button
+            onClick={handleGetStarted}
+            className="px-8 py-6 text-lg bg-[#0066cc] hover:bg-[#0055aa] text-white rounded-lg 
+                       transition-colors duration-200 mt-8"
+          >
+            Continue
+          </Button>
+        </motion.div>
+      </motion.div>
 
       {/* Footer */}
-      <p className="absolute bottom-4 text-sm text-gray-400">
+      <motion.p
+        className="absolute bottom-6 text-sm text-gray-400"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.8, duration: 1.2 }}
+      >
         {/* Securely enhances your Apple Notes */}
         v0.1.0
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 };
 
