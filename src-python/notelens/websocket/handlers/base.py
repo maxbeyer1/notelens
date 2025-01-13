@@ -1,3 +1,4 @@
+"""Base class for WebSocket message handlers."""
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 from websockets.asyncio.server import ServerConnection

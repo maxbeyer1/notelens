@@ -1,10 +1,10 @@
+"""Handler for ping messages (mainly used for debugging)."""
 import json
 from datetime import datetime
 from typing import Dict, Any
 from websockets.asyncio.server import ServerConnection
 
 from .base import WebSocketHandler
-from ...core.message_bus import MessageBus
 
 
 class PingHandler(WebSocketHandler):

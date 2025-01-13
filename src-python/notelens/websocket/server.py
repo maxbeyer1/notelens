@@ -4,7 +4,6 @@ WebSocket server implementation for NoteLens.
 import asyncio
 import json
 import logging
-import signal
 from datetime import datetime
 from typing import Dict, Set, Optional
 from http import HTTPStatus
@@ -55,12 +54,13 @@ class NoteLensWebSocket:
     def _setup_handlers(self) -> Dict[str, WebSocketHandler]:
         """Initialize message handlers."""
         # Import handlers here to avoid circular imports
-        # from .handlers.search import SearchHandler
+        # pylint: disable=import-outside-toplevel
+        from .handlers.search import SearchHandler
         # from .handlers.system import SystemControlHandler
         from .handlers.ping import PingHandler
 
         return {
-            # "search_request": SearchHandler(self.message_bus),
+            "search_request": SearchHandler(self.message_bus),
             # "watcher_control": SystemControlHandler(self.message_bus),
             # "get_system_status": SystemControlHandler(self.message_bus),
             "ping": PingHandler(self.message_bus),
@@ -174,25 +174,6 @@ class NoteLensWebSocket:
                 request_id=data.get("requestId")
             )
 
-    # def _get_message_handler(self, message_type: str):
-    #     """Get the appropriate handler for a message type."""
-    #     # Message handler mapping will be implemented as we add functionality
-    #     handlers = {
-    #         "ping": self._handle_ping,
-    #         # Additional handlers will be added here
-    #     }
-    #     return handlers.get(message_type)
-
-    # async def _handle_ping(self, websocket: ServerConnection, data: Dict):
-    #     """Handle ping messages (for testing)."""
-    #     await self.send_message(websocket, {
-    #         "type": "pong",
-    #         "requestId": data.get("requestId"),
-    #         "timestamp": datetime.now().timestamp(),
-    #         "payload": None,
-    #         "status": "success"
-    #     })
-
     @staticmethod
     def _validate_message(data: Dict) -> bool:
         """Validate incoming message format."""
@@ -239,7 +220,6 @@ class NoteLensWebSocket:
 #     except KeyboardInterrupt:
 #         await server.shutdown()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # This allows us to run the WebSocket server directly for testing
     # asyncio.run(run_test_server())
-    pass
