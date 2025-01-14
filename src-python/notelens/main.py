@@ -7,6 +7,7 @@ import sys
 import asyncio
 from functools import partial
 
+from notelens.core.config import config
 from notelens.core.database import DatabaseManager
 from notelens.core.watcher import WatcherService
 from notelens.core.message_bus import MessageBus, MessageType
@@ -17,19 +18,18 @@ from notelens.websocket.server import NoteLensWebSocket
 
 ### LOGGING CONFIG ###
 
-### STANDARD ##
-# logging.basicConfig(level=logging.INFO)
+if config.env_mode == "PROD":
+    logging.basicConfig(level=logging.INFO)
+else:  # DEV mode
+    # Enable asyncio debug mode
+    asyncio.get_event_loop().set_debug(True)
 
-### DEBUG ###
-# Enable asyncio debug mode
-asyncio.get_event_loop().set_debug(True)
-
-# Debug logging configuration
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logging.getLogger('asyncio').setLevel(logging.DEBUG)
+    # Debug logging configuration
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logging.getLogger('asyncio').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
