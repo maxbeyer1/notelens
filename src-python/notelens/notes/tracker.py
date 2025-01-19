@@ -1,7 +1,7 @@
 """Note tracking and processing functionality."""
 import logging
+import asyncio
 from typing import Dict, Optional, Set
-from tqdm import tqdm
 
 from .service import NoteService
 from ..core.models import Note
@@ -129,13 +129,13 @@ class NoteTracker:
             note_items = current_notes.items()
 
             # Process current notes with progress bar in DEV mode
-            if config.env_mode == "DEV":
-                note_items = tqdm(
-                    note_items,
-                    total=len(current_notes),
-                    desc="Processing notes",
-                    unit="note"
-                )
+            # if config.env_mode == "DEV":
+            #     note_items = tqdm(
+            #         note_items,
+            #         total=len(current_notes),
+            #         desc="Processing notes",
+            #         unit="note"
+            #     )
 
             # Process each current note
             for uuid, note_data in note_items:
@@ -169,7 +169,10 @@ class NoteTracker:
 
                     # Update progress manager
                     if self.setup_manager:
-                        await self.setup_manager.update_note_progress(note.title, note_stats_update)
+                        self.setup_manager.update_note_progress(
+                            note.title, note_stats_update)
+
+                    await asyncio.sleep(0)
 
                 except Exception as e:
                     logger.error("Error processing note %s: %s", uuid, str(e))

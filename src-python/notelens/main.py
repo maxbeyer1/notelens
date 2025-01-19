@@ -13,6 +13,7 @@ from notelens.core.message_bus import (
     MessageBus, Message, SystemAction, SetupStage,
     SearchMessage, WatcherChangeMessage, SystemControlMessage,
     SetupStartMessage, SetupProgressMessage, SetupCompleteMessage,
+    SystemStatusMessage
 )
 from notelens.core.setup_manager import SetupManager
 from notelens.core.config import config
@@ -67,8 +68,13 @@ class NoteLensApp:
     async def setup(self):
         """Initialize and setup all services."""
         try:
+            # WebSocket server
+            self.websocket_server = NoteLensWebSocket(
+                message_bus=self.message_bus)
+
             # Setup manager
-            self.setup_manager = SetupManager(self.message_bus)
+            self.setup_manager = SetupManager(
+                self.message_bus, self.websocket_server)
 
             # Initialize and setup database
             self.db_manager = DatabaseManager()
@@ -78,10 +84,6 @@ class NoteLensApp:
             self.note_service = NoteService(self.db_manager)
             self.note_tracker = NoteTracker(
                 self.note_service, self.setup_manager)
-
-            # WebSocket server
-            self.websocket_server = NoteLensWebSocket(
-                message_bus=self.message_bus)
 
             # Watcher service
             self.watcher_service = WatcherService(self.message_bus)
@@ -96,82 +98,92 @@ class NoteLensApp:
         try:
             while not self._shutdown_event.is_set():
                 try:
-                    message = await self.message_bus.main_queue.get()
-                    start_time = time.time()
-                    logger.debug(
-                        "Starting to process message type: %s at %s",
-                        type(message.payload),
-                        start_time
-                    )
+                    message = await self.message_bus.get_next_message()
+                    was_priority = isinstance(message.payload, (
+                        SetupProgressMessage,
+                        SystemStatusMessage
+                    ))
 
-                    payload = message.payload
+                    # start_time = time.time()
+                    # logger.debug(
+                    #     "Starting to process message type: %s at %s",
+                    #     type(message.payload),
+                    #     start_time
+                    # )
 
-                    if isinstance(payload, SearchMessage):
-                        # Handle search request
-                        logger.info("Received search request: query=%s, limit=%s",
-                                    payload.query, payload.limit)
+                    try:
+                        payload = message.payload
 
-                        results = self.note_service.search_notes(
-                            payload.query,
-                            payload.limit
-                        )
-                        if message.reply_queue:
-                            await message.reply_queue.put(results)
+                        if isinstance(payload, SearchMessage):
+                            # Handle search request
+                            logger.info("Received search request: query=%s, limit=%s",
+                                        payload.query, payload.limit)
 
-                    elif isinstance(payload, WatcherChangeMessage):
-                        # Handle database change
-                        logger.info("Received database change notification")
+                            results = self.note_service.search_notes(
+                                payload.query,
+                                payload.limit
+                            )
+                            if message.reply_queue:
+                                await message.reply_queue.put(results)
 
-                        try:
-                            parser = NotesParser()
-                            parser_data = parser.parse_database()
-                            if parser_data:
-                                stats = await self.note_tracker.process_notes(
-                                    parser_data)
-                                logger.info(
-                                    "Notes processing complete: %s", stats)
-                        except Exception as e:
-                            logger.error(
-                                "Error processing database change: %s", str(e))
+                        elif isinstance(payload, WatcherChangeMessage):
+                            # Handle database change
+                            logger.info(
+                                "Received database change notification")
 
-                    elif isinstance(payload, SystemControlMessage):
-                        # Handle system control messages
-                        logger.info("Received system control message: %s",
-                                    payload.action)
+                            try:
+                                parser = NotesParser()
+                                parser_data = parser.parse_database()
+                                if parser_data:
+                                    stats = await self.note_tracker.process_notes(
+                                        parser_data)
+                                    logger.info(
+                                        "Notes processing complete: %s", stats)
+                            except Exception as e:
+                                logger.error(
+                                    "Error processing database change: %s", str(e))
 
-                        if payload.action == SystemAction.START:
-                            self.watcher_service.start()
-                        elif payload.action == SystemAction.STOP:
-                            self.watcher_service.stop()
+                        elif isinstance(payload, SystemControlMessage):
+                            # Handle system control messages
+                            logger.info("Received system control message: %s",
+                                        payload.action)
 
-                        if message.reply_queue:
-                            await message.reply_queue.put({
-                                "status": "success",
-                                "action": payload.action.name
-                            })
+                            if payload.action == SystemAction.START:
+                                self.watcher_service.start()
+                            elif payload.action == SystemAction.STOP:
+                                self.watcher_service.stop()
 
-                    elif isinstance(payload, SetupStartMessage):
-                        # Handle setup initiation
-                        await self._handle_setup_start(message)
+                            if message.reply_queue:
+                                await message.reply_queue.put({
+                                    "status": "success",
+                                    "action": payload.action.name
+                                })
 
-                    elif isinstance(payload, SetupProgressMessage):
-                        # Handle setup progress updates
-                        await self._handle_setup_progress(message)
+                        elif isinstance(payload, SetupStartMessage):
+                            # Handle setup initiation
+                            await self._handle_setup_start(message)
 
-                    elif isinstance(payload, SetupCompleteMessage):
-                        # Handle setup completion
-                        await self._handle_setup_complete(message)
+                        elif isinstance(payload, SetupProgressMessage):
+                            # Handle setup progress updates
+                            await self._handle_setup_progress(message)
 
-                    else:
-                        logger.warning("Unknown message type: %s",
-                                       type(payload))
+                        elif isinstance(payload, SetupCompleteMessage):
+                            # Handle setup completion
+                            await self._handle_setup_complete(message)
 
-                    end_time = time.time()
-                    logger.debug(
-                        "Finished processing message type: %s, took %.2f seconds",
-                        type(message.payload),
-                        end_time - start_time
-                    )
+                        else:
+                            logger.warning("Unknown message type: %s",
+                                           type(payload))
+
+                        # end_time = time.time()
+                        # logger.debug(
+                        #     "Finished processing message type: %s, took %.2f seconds",
+                        #     type(message.payload),
+                        #     end_time - start_time
+                        # )
+                    finally:
+                        # Mark task as done
+                        self.message_bus.task_done(was_priority)
 
                 except asyncio.CancelledError:
                     logger.debug("Message processing cancelled")
@@ -390,11 +402,12 @@ class NoteLensApp:
 
         try:
             # Start WebSocket server
-            websocket_task = asyncio.create_task(
-                self.websocket_server.start(),
-                name="websocket_server"
-            )
-            self._tasks.add(websocket_task)
+            # websocket_task = asyncio.create_task(
+            #     self.websocket_server.start(),
+            #     name="websocket_server"
+            # )
+            # self._tasks.add(websocket_task)
+            websocket_server = await self.websocket_server.start()
 
             # Start message processor
             message_task = asyncio.create_task(

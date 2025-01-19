@@ -79,7 +79,11 @@ class NoteLensWebSocket:
         return self.server is not None and self.server.is_serving()
 
     async def start(self):
-        """Start the WebSocket server."""
+        """Start the WebSocket server.
+
+        Returns:
+            The WebSocket server instance.
+        """
         self._shutdown_event = asyncio.Event()
 
         try:
@@ -101,20 +105,31 @@ class NoteLensWebSocket:
 
             logger.info("WebSocket server started on ws://%s:%d",
                         self.host, self.port)
-            await self._shutdown_event.wait()
+            # await self._shutdown_event.wait()
 
+            return self.server
+
+        # except Exception as e:
+        #     logger.error("Failed to start WebSocket server: %s", str(e))
+        #     raise
+        # finally:
+        #     # Ensure broadcast task is cancelled
+        #     if self._broadcast_task:
+        #         self._broadcast_task.cancel()
+
+        #         try:
+        #             await self._broadcast_task  # Wait for task to finish
+        #         except asyncio.CancelledError:  # Ignore cancellation
+        #             pass
         except Exception as e:
             logger.error("Failed to start WebSocket server: %s", str(e))
-            raise
-        finally:
-            # Ensure broadcast task is cancelled
             if self._broadcast_task:
                 self._broadcast_task.cancel()
-
                 try:
-                    await self._broadcast_task  # Wait for task to finish
-                except asyncio.CancelledError:  # Ignore cancellation
+                    await self._broadcast_task
+                except asyncio.CancelledError:
                     pass
+            raise
 
     async def shutdown(self, sig=None):
         """Gracefully shutdown the WebSocket server."""
@@ -135,6 +150,14 @@ class NoteLensWebSocket:
             self.server.close()
             await self.server.wait_closed()
 
+        # Cancel broadcast task
+        if self._broadcast_task:
+            self._broadcast_task.cancel()
+            try:
+                await self._broadcast_task
+            except asyncio.CancelledError:
+                pass
+
         # Set shutdown event
         if self._shutdown_event:
             self._shutdown_event.set()
@@ -149,8 +172,16 @@ class NoteLensWebSocket:
         """Handle broadcast messages from queue."""
         try:
             while not self._shutdown_event.is_set():
+                logger.debug("Waiting for next broadcast message...")
                 message = await self._broadcast_queue.get()
+                logger.debug("Got broadcast message, about to send to clients")
+
                 try:
+                    #  Log current event loop state
+                    loop = asyncio.get_running_loop()
+                    logger.debug(f"Current event loop: {
+                                 id(loop)}, is_running: {loop.is_running()}")
+
                     # Ensure timestamp is present
                     if "timestamp" not in message:
                         message["timestamp"] = datetime.now().timestamp()

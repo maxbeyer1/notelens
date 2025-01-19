@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from typing import Any, Dict, Optional, TypeVar, Union, Generic
-from asyncio import Queue
+from asyncio import Queue, QueueEmpty
 import uuid
 
 
@@ -147,7 +147,15 @@ class MessageBus:
 
     def __init__(self):
         self.main_queue: Queue[Message] = Queue()
+        self.priority_queue: Queue[Message] = Queue()
         self._response_queues: Dict[str, Queue] = {}
+
+    def _is_priority_message(self, payload: MessageType) -> bool:
+        """Determine if a message should be handled with priority."""
+        return isinstance(payload, (
+            SetupProgressMessage,
+            SystemStatusMessage
+        ))
 
     async def send(self, payload: MessageType) -> Optional[Any]:
         """Send a message and optionally wait for response.
@@ -168,7 +176,11 @@ class MessageBus:
         if reply_queue:
             self._response_queues[payload.message_id] = reply_queue
 
-        await self.main_queue.put(message)
+        # Route to appropriate queue
+        if self._is_priority_message(payload):
+            await self.priority_queue.put(message)
+        else:
+            await self.main_queue.put(message)
 
         if reply_queue:
             try:
@@ -178,6 +190,29 @@ class MessageBus:
                 del self._response_queues[payload.message_id]
 
         return None
+
+    async def get_next_message(self) -> Message:
+        """Get the next message to process, prioritizing the priority queue.
+
+        This method is used to get messages in the correct order.
+        Priority messages are always processed before main queue messages.
+
+        Returns:
+            The next message to process, if any
+        """
+        # Always check priority queue first
+        try:
+            return self.priority_queue.get_nowait()
+        except QueueEmpty:
+            # If priority queue is empty, check main queue
+            return await self.main_queue.get()
+
+    def task_done(self, was_priority: bool):
+        """Mark a task as done in the appropriate queue."""
+        if was_priority:
+            self.priority_queue.task_done()
+        else:
+            self.main_queue.task_done()
 
     def handle_message(self, message: Message) -> None:
         """Message handler type hint helper.
