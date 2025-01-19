@@ -7,10 +7,13 @@ import sys
 import asyncio
 from functools import partial
 
+from notelens.core.message_bus import (
+    MessageBus, SystemAction, SearchMessage,
+    WatcherChangeMessage, SystemControlMessage
+)
 from notelens.core.config import config
 from notelens.core.database import DatabaseManager
 from notelens.core.watcher import WatcherService
-from notelens.core.message_bus import MessageBus, MessageType
 from notelens.notes.service import NoteService
 from notelens.notes.tracker import NoteTracker
 from notelens.notes.parser.parser import NotesParser
@@ -76,20 +79,21 @@ class NoteLensApp:
             while not self._shutdown_event.is_set():
                 try:
                     message = await self.message_bus.main_queue.get()
+                    payload = message.payload
 
-                    if message.type == MessageType.DB_SEARCH:
+                    if isinstance(payload, SearchMessage):
                         # Handle search request
-                        logger.info("Received search request: %s",
-                                    message.payload)
+                        logger.info("Received search request: query=%s, limit=%s",
+                                    payload.query, payload.limit)
 
                         results = self.note_service.search_notes(
-                            message.payload["query"],
-                            message.payload["limit"]
+                            payload.query,
+                            payload.limit
                         )
                         if message.reply_queue:
                             await message.reply_queue.put(results)
 
-                    elif message.type == MessageType.WATCHER_CHANGE:
+                    elif isinstance(payload, WatcherChangeMessage):
                         # Handle database change
                         logger.info("Received database change notification")
 
@@ -105,21 +109,20 @@ class NoteLensApp:
                             logger.error(
                                 "Error processing database change: %s", str(e))
 
-                    elif message.type == MessageType.SYSTEM_CONTROL:
+                    elif isinstance(payload, SystemControlMessage):
                         # Handle system control messages
                         logger.info("Received system control message: %s",
-                                    message.payload)
+                                    payload.action)
 
-                        action = message.payload.get("action")
-                        if action == "start":
+                        if payload.action == SystemAction.START:
                             self.watcher_service.start()
-                        elif action == "stop":
+                        elif payload.action == SystemAction.STOP:
                             self.watcher_service.stop()
 
                         if message.reply_queue:
                             await message.reply_queue.put({
                                 "status": "success",
-                                "action": action
+                                "action": payload.action.name
                             })
 
                 except asyncio.CancelledError:
