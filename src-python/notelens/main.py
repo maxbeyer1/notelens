@@ -125,6 +125,10 @@ class NoteLensApp:
                                 "action": payload.action.name
                             })
 
+                    else:
+                        logger.warning("Unknown message type: %s",
+                                       type(payload))
+
                 except asyncio.CancelledError:
                     logger.debug("Message processing cancelled")
                     break

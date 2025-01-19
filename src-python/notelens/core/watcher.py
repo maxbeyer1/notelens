@@ -10,7 +10,7 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from watchdog.observers import Observer
 
 from .config import config
-from .message_bus import MessageBus, MessageType
+from .message_bus import MessageBus, WatcherChangeMessage
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +74,10 @@ class WatcherService:
         """Handle database changes by sending a message on the bus."""
         try:
             asyncio.create_task(
-                self.message_bus.send(
-                    MessageType.WATCHER_CHANGE,
-                    {"timestamp": datetime.now().timestamp()}
-                )
+                self.message_bus.send(WatcherChangeMessage(
+                    # TODO: update with event src path
+                    path=str(config.apple_notes.db_path)
+                ))
             )
         except Exception as e:
             logger.error("Error handling database change: %s",

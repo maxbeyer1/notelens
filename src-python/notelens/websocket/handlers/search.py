@@ -5,7 +5,7 @@ from typing import Dict, Any
 from websockets.asyncio.server import ServerConnection
 
 from .base import WebSocketHandler
-from ...core.message_bus import MessageType
+from ...core.message_bus import SearchMessage
 
 
 class SearchHandler(WebSocketHandler):
@@ -21,15 +21,10 @@ class SearchHandler(WebSocketHandler):
             websocket (ServerConnection): The WebSocket connection.
             data (Dict): The message data
         """
-        response = await self.message_bus.send(
-            MessageType.DB_SEARCH,
-            {
-                "needs_response": True,
-                "query": data["payload"]["query"],
-                "limit": data["payload"].get("limit", 10),
-                "websocket_request_id": data["requestId"]
-            }
-        )
+        response = await self.message_bus.send(SearchMessage(
+            query=data["payload"]["query"],
+            limit=data["payload"].get("limit", 10),
+        ))
 
         await websocket.send(json.dumps({
             "type": "search_results",
