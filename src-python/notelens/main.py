@@ -5,6 +5,7 @@ import logging
 import signal
 import sys
 import asyncio
+import concurrent.futures
 from functools import partial
 import time
 
@@ -44,25 +45,39 @@ class NoteLensApp:
     """Main application class for NoteLens backend."""
 
     def __init__(self):
+        # Services
         self.message_bus = MessageBus()
         self.db_manager = None
         self.watcher_service = None
         self.note_service = None
         self.note_tracker = None
         self.websocket_server = None
+        self.setup_manager = None
+
+        # Application loop
         self._shutdown_event = asyncio.Event()
         self._tasks = set()
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    async def _run_in_executor(self, func, *args):
+        """Run a blocking function in the thread pool executor."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, func, *args)
 
     async def setup(self):
         """Initialize and setup all services."""
         try:
+            # Setup manager
+            self.setup_manager = SetupManager(self.message_bus)
+
             # Initialize and setup database
             self.db_manager = DatabaseManager()
             self.db_manager.setup()
 
             # Notes services
             self.note_service = NoteService(self.db_manager)
-            self.note_tracker = NoteTracker(self.note_service)
+            self.note_tracker = NoteTracker(
+                self.note_service, self.setup_manager)
 
             # WebSocket server
             self.websocket_server = NoteLensWebSocket(
@@ -173,11 +188,11 @@ class NoteLensApp:
         """Handle setup initiation."""
         logger.info("Starting system setup")
 
-        setup_manager = SetupManager(self.message_bus)
+        # setup_manager = SetupManager(self.message_bus)
 
         try:
             # Stage 1: Ensure services are initialized and started
-            await setup_manager.start_stage(
+            await self.setup_manager.start_stage(
                 SetupStage.INITIALIZING,
                 "Initializing services..."
             )
@@ -201,40 +216,41 @@ class NoteLensApp:
                         ', '.join(unavailable_services)}"
                 )
 
-            await setup_manager.complete_stage("Service initialization complete")
+            await self.setup_manager.complete_stage("Service initialization complete")
 
             # Stage 2: Parse Notes database
-            await setup_manager.start_stage(
+            await self.setup_manager.start_stage(
                 SetupStage.PARSING,
                 "Reading Notes database..."
             )
 
             parser = NotesParser()
-            parser_data = parser.parse_database()
+            # Run in thread pool to avoid blocking
+            parser_data = await self._run_in_executor(parser.parse_database)
 
             if not parser_data:
                 raise ValueError("Parser returned no data")
 
-            await setup_manager.complete_stage("Notes database parsed successfully")
+            await self.setup_manager.complete_stage("Notes database parsed successfully")
 
             # Stage 3: Process Notes
-            await setup_manager.start_stage(
+            await self.setup_manager.start_stage(
                 SetupStage.PROCESSING,
                 "Beginning note processing..."
             )
 
             # Create note tracker with setup manager for progress updates
-            note_tracker = NoteTracker(
-                note_service=self.note_service,
-                setup_manager=setup_manager
-            )
+            # note_tracker = NoteTracker(
+            #     note_service=self.note_service,
+            #     setup_manager=setup_manager
+            # )
 
             # Process notes - note_tracker will handle progress updates
-            stats = await note_tracker.process_notes(parser_data)
+            stats = await self.note_tracker.process_notes(parser_data)
 
             # Complete setup
-            self.setup_completed = True
-            self.initial_sync_done = True
+            # self.setup_completed = True
+            # self.initial_sync_done = True
 
             await self.message_bus.send(SetupCompleteMessage(
                 success=True,
@@ -335,6 +351,11 @@ class NoteLensApp:
         if self._shutdown_event:
             logger.info("Setting shutdown event...")
             self._shutdown_event.set()
+
+        # Shutdown executor
+        if self._executor:
+            logger.info("Shutting down executor...")
+            self._executor.shutdown(wait=True)
 
         # Stop WebSocket server
         if self.websocket_server:

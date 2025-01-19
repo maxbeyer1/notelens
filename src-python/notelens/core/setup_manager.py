@@ -56,6 +56,7 @@ class SetupManager:
 
     async def _send_progress(self, status: str, current_note: Optional[str] = None):
         """Send progress update through the message bus."""
+        logger.debug("Sending setup progress: %s", status)
         await self.message_bus.send(SetupProgressMessage(
             stage=self.current_stage,
             status=status,

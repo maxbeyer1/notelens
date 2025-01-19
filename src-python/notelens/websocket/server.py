@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import time
+from threading import Lock
 from datetime import datetime
 from typing import Dict, Set, Optional
 from http import HTTPStatus
@@ -48,6 +49,9 @@ class NoteLensWebSocket:
         self.clients: Set[ServerConnection] = set()
         self.server = None
         self._shutdown_event = None
+        self._broadcast_queue: asyncio.Queue = asyncio.Queue()
+        self._broadcast_task = None
+        self._clients_lock = Lock()
 
         # Register message handlers
         self.handlers: Dict[str, WebSocketHandler] = self._setup_handlers()
@@ -79,6 +83,13 @@ class NoteLensWebSocket:
         self._shutdown_event = asyncio.Event()
 
         try:
+            # Start broadcast handler task
+            self._broadcast_task = asyncio.create_task(
+                self._handle_broadcasts(),
+                name="broadcast_handler"
+            )
+
+            # Start WebSocket server
             self.server = await serve(
                 self.handle_client,
                 self.host,
@@ -95,6 +106,15 @@ class NoteLensWebSocket:
         except Exception as e:
             logger.error("Failed to start WebSocket server: %s", str(e))
             raise
+        finally:
+            # Ensure broadcast task is cancelled
+            if self._broadcast_task:
+                self._broadcast_task.cancel()
+
+                try:
+                    await self._broadcast_task  # Wait for task to finish
+                except asyncio.CancelledError:  # Ignore cancellation
+                    pass
 
     async def shutdown(self, sig=None):
         """Gracefully shutdown the WebSocket server."""
@@ -125,14 +145,67 @@ class NoteLensWebSocket:
             return connection.respond(HTTPStatus.OK, "OK\n")
         return None
 
+    async def _handle_broadcasts(self):
+        """Handle broadcast messages from queue."""
+        try:
+            while not self._shutdown_event.is_set():
+                message = await self._broadcast_queue.get()
+                try:
+                    # Ensure timestamp is present
+                    if "timestamp" not in message:
+                        message["timestamp"] = datetime.now().timestamp()
+
+                    # Get current clients safely
+                    with self._clients_lock:
+                        current_clients = set(self.clients)  # Make a copy
+
+                    if not current_clients:
+                        logger.debug("No clients connected, broadcast skipped")
+                        continue
+
+                    # Send to all clients
+                    send_tasks = []
+                    for client in current_clients:
+                        try:
+                            send_tasks.append(
+                                asyncio.create_task(
+                                    client.send(json.dumps(message))
+                                )
+                            )
+                        except Exception as e:
+                            logger.error(
+                                "Failed to queue broadcast to client: %s", str(e))
+                            continue
+
+                    if send_tasks:
+                        await asyncio.gather(*send_tasks, return_exceptions=True)
+                        logger.debug(
+                            "Broadcast completed to %d clients", len(send_tasks))
+
+                except Exception as e:
+                    logger.error("Error in broadcast handler: %s", str(e))
+                finally:
+                    self._broadcast_queue.task_done()
+
+        except asyncio.CancelledError:
+            logger.debug("Broadcast handler cancelled")
+        except Exception as e:
+            logger.error("Broadcast handler error: %s", str(e))
+
+    async def broadcast(self, message: Dict):
+        """Queue a message for broadcasting to all clients."""
+        await self._broadcast_queue.put(message)
+        logger.debug("Message queued for broadcast")
+
     async def handle_client(self, websocket: ServerConnection):
         """Handle individual client connections."""
         client_id = str(websocket.id)
         logger.info("New client connected: %s", client_id)
 
         try:
-            # Add client to set
-            self.clients.add(websocket)
+            # Add client to set thread-safely
+            with self._clients_lock:
+                self.clients.add(websocket)
 
             # Handle client messages
             async for message in websocket:
@@ -149,7 +222,9 @@ class NoteLensWebSocket:
         except Exception as e:
             logger.error("Error handling client %s: %s", client_id, str(e))
         finally:
-            self.clients.remove(websocket)
+            # Remove client from set thread-safely
+            with self._clients_lock:
+                self.clients.remove(websocket)
 
     async def process_message(self, websocket: ServerConnection, message: str):
         """Process incoming WebSocket messages."""
@@ -180,43 +255,6 @@ class NoteLensWebSocket:
                 f"Unknown message type: {data['type']}",
                 request_id=data.get("requestId")
             )
-
-    async def broadcast(self, message: Dict):
-        """
-        Broadcast a message to all connected clients.
-
-        Args:
-            message (Dict): The message to broadcast
-        """
-        start_time = time.time()
-        logger.debug("Starting broadcast at %s", start_time)
-
-        if not self.clients:
-            logger.debug("No clients connected, broadcast skipped")
-            return
-
-        # Ensure timestamp is present
-        if "timestamp" not in message:
-            message["timestamp"] = datetime.now().timestamp()
-
-        tasks = []
-        for client in self.clients:
-            try:
-                tasks.append(client.send(json.dumps(message)))
-            except Exception as e:
-                logger.error("Failed to queue broadcast to client: %s", str(e))
-                continue
-
-        if tasks:
-            # Wait for all broadcasts to complete
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-        end_time = time.time()
-        logger.debug(
-            "Broadcast completed at %s (took %.2f seconds)",
-            end_time,
-            end_time - start_time
-        )
 
     @staticmethod
     def _validate_message(data: Dict) -> bool:
