@@ -4,6 +4,7 @@ WebSocket server implementation for NoteLens.
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime
 from typing import Dict, Set, Optional
 from http import HTTPStatus
@@ -56,6 +57,7 @@ class NoteLensWebSocket:
         # Import handlers here to avoid circular imports
         # pylint: disable=import-outside-toplevel
         from .handlers.search import SearchHandler
+        from .handlers.setup import SetupHandler
         # from .handlers.system import SystemControlHandler
         from .handlers.ping import PingHandler
 
@@ -64,8 +66,13 @@ class NoteLensWebSocket:
             # "watcher_control": SystemControlHandler(self.message_bus),
             # "get_system_status": SystemControlHandler(self.message_bus),
             "ping": PingHandler(self.message_bus),
+            "setup_start": SetupHandler(self.message_bus),
             # Add other handlers as needed
         }
+
+    def is_running(self) -> bool:
+        """Check if the server is running."""
+        return self.server is not None and self.server.is_serving()
 
     async def start(self):
         """Start the WebSocket server."""
@@ -173,6 +180,43 @@ class NoteLensWebSocket:
                 f"Unknown message type: {data['type']}",
                 request_id=data.get("requestId")
             )
+
+    async def broadcast(self, message: Dict):
+        """
+        Broadcast a message to all connected clients.
+
+        Args:
+            message (Dict): The message to broadcast
+        """
+        start_time = time.time()
+        logger.debug("Starting broadcast at %s", start_time)
+
+        if not self.clients:
+            logger.debug("No clients connected, broadcast skipped")
+            return
+
+        # Ensure timestamp is present
+        if "timestamp" not in message:
+            message["timestamp"] = datetime.now().timestamp()
+
+        tasks = []
+        for client in self.clients:
+            try:
+                tasks.append(client.send(json.dumps(message)))
+            except Exception as e:
+                logger.error("Failed to queue broadcast to client: %s", str(e))
+                continue
+
+        if tasks:
+            # Wait for all broadcasts to complete
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        end_time = time.time()
+        logger.debug(
+            "Broadcast completed at %s (took %.2f seconds)",
+            end_time,
+            end_time - start_time
+        )
 
     @staticmethod
     def _validate_message(data: Dict) -> bool:

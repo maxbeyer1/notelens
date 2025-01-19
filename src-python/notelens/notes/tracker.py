@@ -6,6 +6,7 @@ from tqdm import tqdm
 from .service import NoteService
 from ..core.models import Note
 from ..core.config import config
+from ..core.setup_manager import SetupManager
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +14,14 @@ logger = logging.getLogger(__name__)
 class NoteTracker:
     """Tracks and processes changes to notes."""
 
-    def __init__(self, note_service: NoteService):
+    def __init__(self, note_service: NoteService, setup_manager: Optional[SetupManager] = None):
         """Initialize the note tracker.
 
         Args:
             note_service: NoteService instance.
         """
         self.note_service = note_service
+        self.setup_manager = setup_manager
         logger.info("Note tracker initialized")
 
     def _get_trash_folder_id(self, parser_data: Dict) -> Optional[str]:
@@ -55,7 +57,7 @@ class NoteTracker:
 
         return existing_uuids
 
-    def process_notes(self, parser_data: Dict) -> Dict:
+    async def process_notes(self, parser_data: Dict) -> Dict:
         """Process notes from parser output.
 
         Args:
@@ -109,6 +111,9 @@ class NoteTracker:
 
                 current_notes[note_data['uuid']] = note_data
 
+                if self.setup_manager:
+                    await self.setup_manager.set_total_notes(len(current_notes))
+
             except Exception as e:
                 logger.error("Error processing note data: %s",
                              str(e), exc_info=True)
@@ -136,10 +141,17 @@ class NoteTracker:
             for uuid, note_data in note_items:
                 try:
                     note = Note(**note_data)
+                    note_stats_update = {
+                        'new': 0,
+                        'modified': 0,
+                        'unchanged': 0,
+                        'errors': 0
+                    }
 
                     if uuid not in existing_uuids:
                         # New note
                         self.note_service.create_note(note)
+                        note_stats_update['new'] = 1
                         stats['new'] += 1
                         logger.debug("Created new note: %s", note.title)
                     else:
@@ -147,15 +159,26 @@ class NoteTracker:
                         existing_note = self.note_service.get_note(uuid)
                         if existing_note and note.modify_time > existing_note.modify_time:
                             self.note_service.update_note(note)
+                            note_stats_update['modified'] = 1
                             stats['modified'] += 1
                             logger.debug("Updated note: %s", note.title)
                         else:
+                            note_stats_update['unchanged'] = 1
                             stats['unchanged'] += 1
                             logger.debug("Note unchanged: %s", note.title)
+
+                    # Update progress manager
+                    if self.setup_manager:
+                        await self.setup_manager.update_note_progress(note.title, note_stats_update)
 
                 except Exception as e:
                     logger.error("Error processing note %s: %s", uuid, str(e))
                     stats['errors'] += 1
+                    if self.setup_manager:
+                        await self.setup_manager.update_note_progress(
+                            note_data.get('title', 'Unknown'),
+                            {'errors': 1}
+                        )
                     continue
 
             # Process deletions by comparing sets of UUIDs

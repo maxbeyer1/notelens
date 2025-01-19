@@ -6,11 +6,14 @@ import signal
 import sys
 import asyncio
 from functools import partial
+import time
 
 from notelens.core.message_bus import (
-    MessageBus, SystemAction, SearchMessage,
-    WatcherChangeMessage, SystemControlMessage
+    MessageBus, Message, SystemAction, SetupStage,
+    SearchMessage, WatcherChangeMessage, SystemControlMessage,
+    SetupStartMessage, SetupProgressMessage, SetupCompleteMessage,
 )
+from notelens.core.setup_manager import SetupManager
 from notelens.core.config import config
 from notelens.core.database import DatabaseManager
 from notelens.core.watcher import WatcherService
@@ -79,6 +82,13 @@ class NoteLensApp:
             while not self._shutdown_event.is_set():
                 try:
                     message = await self.message_bus.main_queue.get()
+                    start_time = time.time()
+                    logger.debug(
+                        "Starting to process message type: %s at %s",
+                        type(message.payload),
+                        start_time
+                    )
+
                     payload = message.payload
 
                     if isinstance(payload, SearchMessage):
@@ -101,7 +111,7 @@ class NoteLensApp:
                             parser = NotesParser()
                             parser_data = parser.parse_database()
                             if parser_data:
-                                stats = self.note_tracker.process_notes(
+                                stats = await self.note_tracker.process_notes(
                                     parser_data)
                                 logger.info(
                                     "Notes processing complete: %s", stats)
@@ -125,9 +135,28 @@ class NoteLensApp:
                                 "action": payload.action.name
                             })
 
+                    elif isinstance(payload, SetupStartMessage):
+                        # Handle setup initiation
+                        await self._handle_setup_start(message)
+
+                    elif isinstance(payload, SetupProgressMessage):
+                        # Handle setup progress updates
+                        await self._handle_setup_progress(message)
+
+                    elif isinstance(payload, SetupCompleteMessage):
+                        # Handle setup completion
+                        await self._handle_setup_complete(message)
+
                     else:
                         logger.warning("Unknown message type: %s",
                                        type(payload))
+
+                    end_time = time.time()
+                    logger.debug(
+                        "Finished processing message type: %s, took %.2f seconds",
+                        type(message.payload),
+                        end_time - start_time
+                    )
 
                 except asyncio.CancelledError:
                     logger.debug("Message processing cancelled")
@@ -139,6 +168,161 @@ class NoteLensApp:
 
         finally:
             logger.debug("Message processing stopped")
+
+    async def _handle_setup_start(self, message: Message[SetupStartMessage]):
+        """Handle setup initiation."""
+        logger.info("Starting system setup")
+
+        setup_manager = SetupManager(self.message_bus)
+
+        try:
+            # Stage 1: Ensure services are initialized and started
+            await setup_manager.start_stage(
+                SetupStage.INITIALIZING,
+                "Initializing services..."
+            )
+
+            # Check all services
+            services_status = {
+                "database": self.note_service.is_available(),
+                "websocket": self.websocket_server.is_running(),
+                "watcher": self.watcher_service.is_available()
+            }
+
+            # If any service is not available, raise an error
+            unavailable_services = [
+                service for service, status in services_status.items()
+                if not status
+            ]
+
+            if unavailable_services:
+                raise RuntimeError(
+                    f"Required services unavailable: {
+                        ', '.join(unavailable_services)}"
+                )
+
+            await setup_manager.complete_stage("Service initialization complete")
+
+            # Stage 2: Parse Notes database
+            await setup_manager.start_stage(
+                SetupStage.PARSING,
+                "Reading Notes database..."
+            )
+
+            parser = NotesParser()
+            parser_data = parser.parse_database()
+
+            if not parser_data:
+                raise ValueError("Parser returned no data")
+
+            await setup_manager.complete_stage("Notes database parsed successfully")
+
+            # Stage 3: Process Notes
+            await setup_manager.start_stage(
+                SetupStage.PROCESSING,
+                "Beginning note processing..."
+            )
+
+            # Create note tracker with setup manager for progress updates
+            note_tracker = NoteTracker(
+                note_service=self.note_service,
+                setup_manager=setup_manager
+            )
+
+            # Process notes - note_tracker will handle progress updates
+            stats = await note_tracker.process_notes(parser_data)
+
+            # Complete setup
+            self.setup_completed = True
+            self.initial_sync_done = True
+
+            await self.message_bus.send(SetupCompleteMessage(
+                success=True,
+                stats=stats
+            ))
+
+            if message.reply_queue:
+                await message.reply_queue.put({
+                    "status": "success",
+                    "stats": stats
+                })
+
+        except Exception as e:
+            logger.error("Setup error: %s", str(e), exc_info=True)
+            await self.message_bus.send(SetupCompleteMessage(
+                success=False,
+                error=str(e)
+            ))
+
+            if message.reply_queue:
+                await message.reply_queue.put({
+                    "status": "error",
+                    "error": str(e)
+                })
+
+    async def _handle_setup_progress(self, message: Message[SetupProgressMessage]):
+        """Handle setup progress updates."""
+        logger.debug(
+            "Setup progress - Stage: %s, Status: %s, Notes: %d/%d",
+            message.payload.stage.name,
+            message.payload.status,
+            message.payload.processed_notes or 0,
+            message.payload.total_notes or 0
+        )
+
+        before_broadcast = time.time()
+        logger.debug(
+            "Setup progress update about to broadcast at %s", before_broadcast)
+
+        # Broadcast progress to websocket clients
+        await self.websocket_server.broadcast(
+            {
+                "type": "setup_progress",
+                "stage": message.payload.stage.name.lower(),
+                "status": message.payload.status,
+                "total_notes": message.payload.total_notes,
+                "processed_notes": message.payload.processed_notes,
+                "current_note": message.payload.current_note,
+                "stats": message.payload.stats
+            }
+        )
+
+        after_broadcast = time.time()
+        logger.debug(
+            "Setup progress broadcast completed at %s (took %.2f seconds)",
+            after_broadcast,
+            after_broadcast - before_broadcast
+        )
+
+    async def _handle_setup_complete(self, message: Message[SetupCompleteMessage]):
+        """Handle setup completion."""
+        if message.payload.success:
+            logger.info("Setup completed successfully")
+            logger.info("Final statistics: %s", message.payload.stats)
+
+            # Broadcast completion to websocket clients
+            await self.websocket_server.broadcast(
+                {
+                    "type": "setup_complete",
+                    "success": True,
+                    "stats": message.payload.stats
+                }
+            )
+
+            # Start services
+            # await self.message_bus.send(SystemControlMessage(
+            #     action=SystemAction.START
+            # ))
+        else:
+            logger.error("Setup failed: %s", message.payload.error)
+            # Broadcast error to websocket clients
+            await self.websocket_server.broadcast(
+                {
+                    "type": "setup_complete",
+                    "success": False,
+                    "error": message.payload.error
+                }
+            )
 
     async def cleanup(self, sig=None):
         """Cleanup function to handle graceful shutdown."""

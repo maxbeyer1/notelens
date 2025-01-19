@@ -18,6 +18,13 @@ class SystemAction(Enum):
     STOP = auto()
 
 
+class SetupStage(Enum):
+    """Available setup stages."""
+    INITIALIZING = auto()     # Database initialization
+    PARSING = auto()          # Running the Ruby parser
+    PROCESSING = auto()       # Processing notes into database
+
+
 @dataclass(kw_only=True)
 class MessageBase:
     """Base class for all message payloads.
@@ -85,23 +92,25 @@ class SystemStatusMessage(MessageBase):
 @dataclass(kw_only=True)
 class SetupStartMessage(MessageBase):
     """Message to initiate setup process."""
-    config: Dict[str, Any]
     needs_response: bool = True
 
 
 @dataclass(kw_only=True)
 class SetupProgressMessage(MessageBase):
     """Message for setup progress updates."""
-    stage: str
-    progress: float  # 0.0 to 1.0
+    stage: SetupStage
     status: str
-    details: Optional[Dict[str, Any]] = None
+    total_notes: Optional[int] = None
+    processed_notes: Optional[int] = None
+    current_note: Optional[str] = None  # Title or identifier of current note
+    stats: Optional[Dict[str, int]] = None  # Running statistics
 
 
 @dataclass(kw_only=True)
 class SetupCompleteMessage(MessageBase):
     """Message for setup completion notification."""
     success: bool
+    stats: Optional[Dict[str, int]] = None  # Final statistics
     error: Optional[str] = None
 
 

@@ -26,6 +26,7 @@ class EmbeddingConfig:
     # Testing configuration
     use_fake_embeddings: bool = True  # Toggle for fake embeddings
     fake_embedding_dim: int = 1536     # Match OpenAI's dimension
+    fake_embedding_delay: float = 0.01  # Delay in seconds for fake embeddings
 
 
 @dataclass

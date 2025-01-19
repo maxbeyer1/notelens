@@ -114,6 +114,10 @@ class WatcherService:
         await asyncio.get_event_loop().run_in_executor(None, self.observer.join)
         self.running = False
 
+    def is_available(self) -> bool:
+        """Check if the watcher is available."""
+        return self.running and self.observer.is_alive()
+
     def __enter__(self):
         """Context manager entry."""
         self.start()

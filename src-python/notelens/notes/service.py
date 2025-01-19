@@ -24,6 +24,20 @@ class NoteService:
         self.db_manager = db_manager
         logger.info("Note service initialized")
 
+    def is_available(self) -> bool:
+        """
+        Check if the service is available.
+
+        Returns:
+            True if available, False otherwise
+        """
+        try:
+            self.db_manager.get_connection()
+            return True
+        except Exception as e:
+            logger.error("Database not available: %s", e)
+            return False
+
     def _generate_embedding(self, text: str, conn) -> bytes:
         """
         Generate embedding for text using either real or fake embeddings.
@@ -39,7 +53,8 @@ class NoteService:
             # Generate fake embedding
             vector = FakeEmbeddingGenerator.generate_fake_embedding(
                 text,
-                dimension=config.embedding.fake_embedding_dim
+                dimension=config.embedding.fake_embedding_dim,
+                delay=config.embedding.fake_embedding_delay
             )
             return VectorUtils.serialize_vector(vector)
         else:

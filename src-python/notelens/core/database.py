@@ -1,6 +1,7 @@
 """
 Database manager for the SQLite database.
 """
+import time
 import struct
 from pathlib import Path
 from typing import List, Optional
@@ -35,13 +36,14 @@ class FakeEmbeddingGenerator:
     """Generates deterministic fake embeddings for testing."""
 
     @staticmethod
-    def generate_fake_embedding(text: str, dimension: int = 1536) -> List[float]:
+    def generate_fake_embedding(text: str, dimension: int = 1536, delay: int = 0) -> List[float]:
         """
         Generate a deterministic fake embedding from text.
 
         Args:
             text: Input text to generate embedding for
             dimension: Desired embedding dimension
+            delay: Delay in seconds before returning the embedding (for simulating processing time)
 
         Returns:
             List of floats representing the fake embedding
@@ -54,6 +56,10 @@ class FakeEmbeddingGenerator:
         # Generate normalized random vector
         vector = np.random.normal(size=dimension)
         normalized = vector / np.linalg.norm(vector)
+
+        # Simulate delay
+        if delay > 0:
+            time.sleep(delay)
 
         return normalized.tolist()
 
