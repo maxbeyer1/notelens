@@ -1,11 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 
-const Welcome = () => {
+const Welcome = ({ onContinue }: { onContinue: () => void }) => {
   const handleGetStarted = () => {
-    // To be implemented: Navigate to first setup step
-    console.log("Starting setup process...");
+    onContinue();
   };
 
   // Subtle fade up animation
@@ -68,7 +67,8 @@ const Welcome = () => {
         >
           <Button
             onClick={handleGetStarted}
-            className="px-8 py-6 text-lg bg-[#0066cc] hover:bg-[#0055aa] text-white rounded-lg 
+            // bg-[#0066cc] hover:bg-[#0055aa]
+            className="px-8 py-6 text-lg bg-gray-900 hover:bg-gray-900/90 text-white rounded-lg 
                        transition-colors duration-200 mt-8"
           >
             Continue
