@@ -111,8 +111,8 @@ class NoteTracker:
 
                 current_notes[note_data['uuid']] = note_data
 
-                if self.setup_manager:
-                    await self.setup_manager.set_total_notes(len(current_notes))
+                # if self.setup_manager:
+                #     await self.setup_manager.set_total_notes(len(current_notes))
 
             except Exception as e:
                 logger.error("Error processing note data: %s",
@@ -120,10 +120,12 @@ class NoteTracker:
                 stats['errors'] += 1
                 continue
 
+        if self.setup_manager:
+            await self.setup_manager.set_total_notes(len(current_notes))
+
         try:
             # Get existing notes
             existing_uuids = self._get_existing_note_uuids(current_notes)
-            print("existing_uuids:", existing_uuids)
 
             # Get current note items
             note_items = current_notes.items()
@@ -168,21 +170,27 @@ class NoteTracker:
                             logger.debug("Note unchanged: %s", note.title)
 
                     # Update progress manager
-                    if self.setup_manager:
-                        self.setup_manager.update_note_progress(
-                            note.title, note_stats_update)
-
-                    await asyncio.sleep(0)
+                    # if self.setup_manager:
+                    #     self.setup_manager.update_note_progress(
+                    #         note.title, note_stats_update)
 
                 except Exception as e:
                     logger.error("Error processing note %s: %s", uuid, str(e))
                     stats['errors'] += 1
-                    if self.setup_manager:
-                        await self.setup_manager.update_note_progress(
-                            note_data.get('title', 'Unknown'),
-                            {'errors': 1}
-                        )
+                    note_stats_update['errors'] = 1
                     continue
+                finally:
+                    # Update progress manager if available
+                    if self.setup_manager is not None:
+                        try:
+                            self.setup_manager.update_note_progress(
+                                note_data.get('title', 'Unknown'),
+                                note_stats_update
+                            )
+                        except Exception as e:
+                            logger.error("Error updating progress: %s", str(e))
+
+                await asyncio.sleep(0)
 
             # Process deletions by comparing sets of UUIDs
             deleted_uuids = existing_uuids - set(current_notes.keys())
