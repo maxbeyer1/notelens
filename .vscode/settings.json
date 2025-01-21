@@ -8,5 +8,10 @@
   "files.exclude": {
     "**/__pycache__": true,
     "**/.pytest_cache": true
+  },
+
+  // Hide TanStack Router route tree from watcher
+  "files.watcherExclude": {
+    "**/routeTree.gen.ts": true
   }
 }

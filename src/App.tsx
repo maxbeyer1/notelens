@@ -9,7 +9,7 @@ const App = () => {
 
   return (
     <AnimatePresence mode="wait">
-      {step === "welcome" && <Welcome onContinue={() => setStep("progress")} />}
+      {/* {step === "welcome" && <Welcome onContinue={() => setStep("progress")} />} */}
       {step === "progress" && <ProgressScreen />}
     </AnimatePresence>
   );
