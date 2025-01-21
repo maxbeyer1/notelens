@@ -1,17 +1,8 @@
-import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { AnimatePresence } from "framer-motion";
 
-import type { RouterContext } from "@/types/router";
-
-// TODO: need to implement this check
-const getOnboardingStatus = async () => {
-  // Check if vector DB exists/is setup
-  // Return true if onboarding is complete
-  return false;
-};
-
-export const Route = createRootRouteWithContext<RouterContext>()({
+export const Route = createRootRoute({
   component: () => (
     <>
       <AnimatePresence mode="wait">
@@ -20,10 +11,4 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       {process.env.NODE_ENV === "development" && <TanStackRouterDevtools />}
     </>
   ),
-  loader: async () => {
-    const isOnboardingComplete = await getOnboardingStatus();
-    return {
-      isOnboardingComplete,
-    };
-  },
 });

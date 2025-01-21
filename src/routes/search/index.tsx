@@ -1,10 +1,15 @@
-// routes/search/index.tsx
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { store } from "@/lib/store";
+
 export const Route = createFileRoute("/search/")({
-  beforeLoad: ({ context }) => {
+  beforeLoad: async () => {
+    const isOnboardingComplete = await store.get<boolean>(
+      "onboarding_complete"
+    );
+
     // Prevent non-completed users from accessing search
-    if (!context.isOnboardingComplete) {
+    if (!isOnboardingComplete) {
       throw redirect({ to: "/onboarding" });
     }
   },
