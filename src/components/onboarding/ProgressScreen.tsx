@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 
 import type { Stage } from "@/types/onboarding";
 import StageItem from "@/components/onboarding/StageItem";
+import ProgressBar from "@/components/ui/ProgressBar";
 
 const ProgressScreen = () => {
   // In production, this would come from WebSocket
@@ -76,14 +77,7 @@ const ProgressScreen = () => {
         </motion.div>
 
         {/* Progress Bar */}
-        <div className="relative h-1 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div
-            className="absolute left-0 top-0 h-full bg-gray-900"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-          />
-        </div>
+        <ProgressBar progress={progress} />
 
         {/* Stages */}
         <div className="space-y-8">
