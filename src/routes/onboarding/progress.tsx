@@ -2,6 +2,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import ProgressScreen from "@/components/onboarding/ProgressScreen";
+import WebSocketTest from "@/components/WebSocketTest";
 import { store } from "@/lib/store";
 
 export const Route = createFileRoute("/onboarding/progress")({
@@ -14,5 +15,6 @@ export const Route = createFileRoute("/onboarding/progress")({
       throw redirect({ to: "/search" });
     }
   },
-  component: ProgressScreen,
+  // component: ProgressScreen,
+  component: WebSocketTest,
 });
