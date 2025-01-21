@@ -1,5 +1,3 @@
 export interface RouterContext {
-  loaderData: {
-    isOnboardingComplete: boolean;
-  };
+  isOnboardingComplete: boolean;
 }

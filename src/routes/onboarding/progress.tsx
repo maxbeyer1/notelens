@@ -5,9 +5,7 @@ import ProgressScreen from "@/components/onboarding/ProgressScreen";
 
 export const Route = createFileRoute("/onboarding/progress")({
   beforeLoad: ({ context }) => {
-    const { isOnboardingComplete } = context.loaderData;
-
-    if (isOnboardingComplete) {
+    if (context.isOnboardingComplete) {
       throw redirect({ to: "/search" });
     }
   },

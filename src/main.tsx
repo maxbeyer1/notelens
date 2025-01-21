@@ -10,7 +10,10 @@ if (!rootElement.innerHTML) {
   const root = createRoot(rootElement);
   root.render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <RouterProvider
+        router={router}
+        context={{ isOnboardingComplete: false }}
+      />
     </StrictMode>
   );
 }

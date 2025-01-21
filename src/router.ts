@@ -5,9 +5,7 @@ import type { RouterContext } from "@/types/router";
 export const router = createRouter({
   routeTree,
   context: {
-    loaderData: {
-      isOnboardingComplete: false,
-    },
+    isOnboardingComplete: false,
   } satisfies RouterContext,
 });
 

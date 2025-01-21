@@ -5,13 +5,9 @@ import Welcome from "@/components/onboarding/Welcome";
 
 export const Route = createFileRoute("/onboarding/")({
   beforeLoad: ({ context }) => {
-    const { isOnboardingComplete } = context.loaderData;
-
-    if (isOnboardingComplete) {
+    if (context.isOnboardingComplete) {
       throw redirect({ to: "/search" });
     }
   },
-  component: () => {
-    return <Welcome />;
-  },
+  component: Welcome,
 });
