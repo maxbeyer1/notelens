@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 
 import type { Stage, EmbeddingProgress } from "@/types/onboarding";
+import { formatTimeRemaining, formatNumber } from "@/lib/utils";
 
 interface StageItemProps {
   stage: Stage;
@@ -15,12 +16,6 @@ const StageItem = ({ stage, isLast, embeddingProgress }: StageItemProps) => {
     waiting: { opacity: 0.5 },
     "in-progress": { opacity: 1 },
     completed: { opacity: 1 },
-  };
-
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -90,11 +85,11 @@ const StageItem = ({ stage, isLast, embeddingProgress }: StageItemProps) => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-gray-500">
                 <span>
-                  {embeddingProgress.completedNotes} of{" "}
-                  {embeddingProgress.totalNotes} notes
+                  {formatNumber(embeddingProgress.completedNotes)} of{" "}
+                  {formatNumber(embeddingProgress.totalNotes)} notes
                 </span>
                 <span>
-                  {formatTime(embeddingProgress.estimatedTimeRemaining)}{" "}
+                  {formatTimeRemaining(embeddingProgress.estimatedTimeRemaining)}{" "}
                   remaining
                 </span>
               </div>
@@ -111,14 +106,16 @@ const StageItem = ({ stage, isLast, embeddingProgress }: StageItemProps) => {
             </div>
 
             {/* Currently Processing Note */}
-            <motion.div
-              className="text-sm text-gray-500"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              key={embeddingProgress.currentNote} // Trigger animation on note change
-            >
-              Processing: {embeddingProgress.currentNote}
-            </motion.div>
+            {embeddingProgress.currentNote && (
+              <motion.div
+                className="text-sm text-gray-500 truncate max-w-[300px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                key={embeddingProgress.currentNote} // Trigger animation on note change
+              >
+                Processing: <span className="font-medium">{embeddingProgress.currentNote}</span>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </div>

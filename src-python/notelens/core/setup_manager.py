@@ -31,7 +31,7 @@ class SetupManager:
         self.current_stage: Optional[SetupStage] = None
         self.total_notes: Optional[int] = None
         self.processed_notes = 0
-        self.current_stats: SetupStats(
+        self.current_stats = SetupStats(
             new=0,
             modified=0,
             unchanged=0,
@@ -127,6 +127,6 @@ class SetupManager:
                 "total_notes": self.total_notes,
                 "processed_notes": self.processed_notes,
                 "current_note": current_note,
-                "stats": self.current_stats.copy() if self.current_stats else None
+                "stats": self.current_stats.model_dump(mode="json") if self.current_stats else None
             }
         )

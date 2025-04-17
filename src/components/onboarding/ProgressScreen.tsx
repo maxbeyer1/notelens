@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
-import type { Stage, EmbeddingProgress } from "@/types/onboarding";
+import type { 
+  Stage, 
+  EmbeddingProgress, 
+  SetupProgressPayload, 
+  SetupCompletePayload 
+} from "@/types/onboarding";
 import StageItem from "@/components/onboarding/StageItem";
 import ProgressBar from "@/components/ui/ProgressBar";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 const ProgressScreen = () => {
-  // In production, this would come from WebSocket
+  const { isConnected, connect, send, subscribe } = useWebSocket();
+  const { completeOnboarding } = useOnboarding();
+
   const [stages, setStages] = useState<Stage[]>([
     {
       id: 1,
       title: "Initializing Services",
       description: "Setting up secure connections",
-      status: "in-progress",
+      status: "waiting",
     },
     {
       id: 2,
@@ -32,69 +41,146 @@ const ProgressScreen = () => {
     {
       currentNote: "",
       completedNotes: 0,
-      totalNotes: 150, // Simulated total
-      estimatedTimeRemaining: 300, // 5 minutes in seconds
+      totalNotes: 0,
+      estimatedTimeRemaining: 0,
     }
   );
 
-  // Simulate progress for demo
+  // Connect to WebSocket when component mounts
   useEffect(() => {
-    const inProgressIndex = stages.findIndex(
-      (stage) => stage.status === "in-progress"
-    );
-    if (inProgressIndex === -1) return;
+    connect();
+  }, [connect]);
 
-    // Only auto-complete for first two stages
-    if (inProgressIndex < 2) {
-      const timer = setTimeout(
-        () => {
-          setStages((prev) => {
-            const newStages = [...prev];
-            newStages[inProgressIndex].status = "completed";
-            if (inProgressIndex < newStages.length - 1) {
-              newStages[inProgressIndex + 1].status = "in-progress";
-            }
-            return newStages;
-          });
-        },
-        inProgressIndex === 0 ? 1000 : 3000
-      );
+  // Start setup process when connected
+  useEffect(() => {
+    if (isConnected) {
+      // Set first stage to in-progress
+      setStages((prev) => {
+        const newStages = [...prev];
+        newStages[0].status = "in-progress";
+        return newStages;
+      });
 
-      return () => clearTimeout(timer);
+      // Send setup_start message to backend
+      send("setup_start");
     }
-  }, [stages]);
+  }, [isConnected, send]);
 
-  // Simulate embedding progress updates
+  // Listen for setup progress messages
   useEffect(() => {
-    if (stages[2].status === "in-progress") {
-      const interval = setInterval(() => {
-        setEmbeddingProgress((prev) => {
-          const newCompleted = prev.completedNotes + 1;
+    if (!isConnected) return;
 
-          // Only complete the stage when we've processed all notes
-          if (newCompleted === prev.totalNotes) {
-            setStages((prevStages) => {
-              const newStages = [...prevStages];
-              newStages[2].status = "completed";
-              return newStages;
-            });
+    const unsubscribe = subscribe("setup_progress", (message: any) => {
+      console.log("Received setup progress:", message);
+
+      // Use our utility function to extract the payload
+      let payload: SetupProgressPayload | null = null;
+      
+      // Check if message directly contains 'payload' property
+      if (message.payload) {
+        payload = message.payload;
+      } 
+      // Check if message is structured differently (direct fields)
+      else if (message.stage) {
+        payload = message;
+      }
+      
+      // Validate payload
+      if (!payload || !payload.stage) {
+        console.error("Invalid setup_progress message format:", message);
+        return;
+      }
+
+      const { stage, status_type, processing, stats } = payload;
+
+      // Map backend stage to frontend stage index
+      let stageIndex = 0;
+      if (stage === "initializing") stageIndex = 0;
+      else if (stage === "parsing") stageIndex = 1;
+      else if (stage === "processing") stageIndex = 2;
+
+      // Update stages
+      setStages((prev) => {
+        const newStages = [...prev];
+
+        // Mark previous stages as completed
+        for (let i = 0; i < stageIndex; i++) {
+          newStages[i].status = "completed";
+        }
+
+        // Mark current stage as in-progress
+        newStages[stageIndex].status = "in-progress";
+
+        // If this stage is complete, mark it as completed
+        if (status_type === "completed") {
+          newStages[stageIndex].status = "completed";
+          
+          // If there's a next stage, make it in-progress
+          if (stageIndex < newStages.length - 1) {
+            newStages[stageIndex + 1].status = "in-progress";
           }
+        }
 
-          return {
-            currentNote: `Meeting notes from ${new Date().toLocaleDateString()}`,
-            completedNotes: newCompleted,
-            totalNotes: prev.totalNotes,
-            estimatedTimeRemaining: Math.max(
-              0,
-              prev.estimatedTimeRemaining - 2
-            ),
-          };
+        return newStages;
+      });
+
+      // Update embedding progress for processing stage
+      if (stage === "processing" && processing && processing.total_notes) {
+        console.log("Updating embedding progress with:", processing);
+        setEmbeddingProgress({
+          currentNote: processing.current_note || "",
+          completedNotes: processing.processed_notes || 0,
+          totalNotes: processing.total_notes,
+          estimatedTimeRemaining: Math.max(
+            0,
+            ((processing.total_notes - (processing.processed_notes || 0)) * 2) // Rough estimate: 2 seconds per note
+          ),
         });
-      }, 2000);
+      }
+    });
 
-      return () => clearInterval(interval);
-    }
-  }, [stages]);
+    return () => unsubscribe();
+  }, [isConnected, subscribe]);
+
+  // Listen for setup complete message
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubscribe = subscribe("setup_complete", (message: any) => {
+      console.log("Received setup complete:", message);
+      
+      // Extract payload from the message
+      let payload: SetupCompletePayload | null = null;
+      
+      if (message.payload) {
+        payload = message.payload;
+      } else if (message.success !== undefined) {
+        payload = message;
+      }
+      
+      if (!payload) {
+        console.error("Invalid setup_complete message format:", message);
+        return;
+      }
+      
+      if (payload.success) {
+        // Mark all stages as completed
+        setStages((prev) =>
+          prev.map((stage) => ({ ...stage, status: "completed" }))
+        );
+
+        // Complete onboarding after a short delay to show completion
+        setTimeout(() => {
+          completeOnboarding();
+        }, 1000);
+      } else if (payload.error) {
+        console.error("Setup failed:", payload.error);
+        // Handle error case - could show an error message to the user
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isConnected, subscribe, completeOnboarding]);
 
   // Calculate overall progress
   const calculateProgress = () => {
@@ -107,7 +193,10 @@ const ProgressScreen = () => {
     let totalProgress = completedStages * progressPerStage;
 
     // Add partial progress for embedding stage if it's in progress
-    if (stages[2].status === "in-progress") {
+    if (
+      stages[2].status === "in-progress" &&
+      embeddingProgress.totalNotes > 0
+    ) {
       const embeddingStageProgress =
         (embeddingProgress.completedNotes / embeddingProgress.totalNotes) *
         progressPerStage;
