@@ -99,6 +99,12 @@ const ProgressScreen = () => {
       else if (stage === "parsing") stageIndex = 1;
       else if (stage === "processing") stageIndex = 2;
 
+      // Check if this is the final processing update (all notes processed)
+      const isComplete = 
+        stage === "processing" && 
+        processing?.processed_notes === processing?.total_notes && 
+        processing?.total_notes > 0;
+
       // Update stages
       setStages((prev) => {
         const newStages = [...prev];
@@ -108,17 +114,16 @@ const ProgressScreen = () => {
           newStages[i].status = "completed";
         }
 
-        // Mark current stage as in-progress
-        newStages[stageIndex].status = "in-progress";
-
-        // If this stage is complete, mark it as completed
-        if (status_type === "completed") {
+        // Mark current stage as in-progress or completed
+        if (status_type === "completed" || isComplete) {
           newStages[stageIndex].status = "completed";
           
           // If there's a next stage, make it in-progress
           if (stageIndex < newStages.length - 1) {
             newStages[stageIndex + 1].status = "in-progress";
           }
+        } else {
+          newStages[stageIndex].status = "in-progress";
         }
 
         return newStages;
@@ -127,43 +132,72 @@ const ProgressScreen = () => {
       // Update embedding progress for processing stage
       if (stage === "processing" && processing && processing.total_notes) {
         console.log("Updating embedding progress with:", processing);
+        
+        // Make sure we don't show more completed notes than total notes
+        const completedNotes = Math.min(
+          processing.processed_notes || 0,
+          processing.total_notes
+        );
+        
         setEmbeddingProgress({
           currentNote: processing.current_note || "",
-          completedNotes: processing.processed_notes || 0,
+          completedNotes,
           totalNotes: processing.total_notes,
           estimatedTimeRemaining: Math.max(
             0,
-            ((processing.total_notes - (processing.processed_notes || 0)) * 2) // Rough estimate: 2 seconds per note
+            ((processing.total_notes - completedNotes) * 2) // Rough estimate: 2 seconds per note
           ),
         });
+        
+        // If we've processed all notes, this is effectively complete
+        if (completedNotes === processing.total_notes) {
+          console.log("All notes processed, treating as setup completion");
+        }
       }
     });
 
     return () => unsubscribe();
   }, [isConnected, subscribe]);
 
-  // Listen for setup complete message
+  // Listen for setup complete message and results
   useEffect(() => {
     if (!isConnected) return;
 
-    const unsubscribe = subscribe("setup_complete", (message: any) => {
-      console.log("Received setup complete:", message);
+    // Set up subscriptions for both message types that could indicate setup completion
+    const completeUnsubscribe = subscribe("setup_complete", (message: any) => {
+      console.log("Received setup_complete:", message);
+      handleSetupComplete(message);
+    });
+    
+    const resultsUnsubscribe = subscribe("setup_results", (message: any) => {
+      console.log("Received setup_results:", message);
+      handleSetupComplete(message);
+    });
+    
+    function handleSetupComplete(message: any) {
+      // Try to extract success status using various possible message formats
+      let success = false;
       
-      // Extract payload from the message
-      let payload: SetupCompletePayload | null = null;
-      
-      if (message.payload) {
-        payload = message.payload;
-      } else if (message.success !== undefined) {
-        payload = message;
+      // Case 1: message.payload.success exists
+      if (message?.payload?.success === true) {
+        success = true;
+      }
+      // Case 2: message.success exists directly
+      else if (message?.success === true) {
+        success = true;
+      }
+      // Case 3: message.payload.results.status exists (from setup.py handler)
+      else if (message?.payload?.results?.status === "success") {
+        success = true;
+      }
+      // Case 4: message.status exists directly
+      else if (message?.status === "success") {
+        success = true;
       }
       
-      if (!payload) {
-        console.error("Invalid setup_complete message format:", message);
-        return;
-      }
+      console.log("Setup completion status:", success);
       
-      if (payload.success) {
+      if (success) {
         // Mark all stages as completed
         setStages((prev) =>
           prev.map((stage) => ({ ...stage, status: "completed" }))
@@ -173,13 +207,23 @@ const ProgressScreen = () => {
         setTimeout(() => {
           completeOnboarding();
         }, 1000);
-      } else if (payload.error) {
-        console.error("Setup failed:", payload.error);
-        // Handle error case - could show an error message to the user
+      } else {
+        const errorMsg = 
+          message?.payload?.error || 
+          message?.error || 
+          message?.payload?.results?.error || 
+          "Unknown error";
+          
+        if (errorMsg !== "Unknown error") {
+          console.error("Setup failed:", errorMsg);
+        }
       }
-    });
+    }
 
-    return () => unsubscribe();
+    return () => {
+      completeUnsubscribe();
+      resultsUnsubscribe();
+    };
   }, [isConnected, subscribe, completeOnboarding]);
 
   // Calculate overall progress
