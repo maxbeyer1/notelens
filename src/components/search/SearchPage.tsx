@@ -54,7 +54,7 @@ export const SearchPage: React.FC = () => {
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
+              strokeWidth={1.5}
               d="M13 10V3L4 14h7v7l9-11h-7z"
             />
           </svg>
@@ -72,7 +72,7 @@ export const SearchPage: React.FC = () => {
   if (selectedNote) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center">
+        <div className="py-3 px-4 border-b border-gray-200 dark:border-gray-900 flex items-center">
           <Button
             variant="ghost"
             size="sm"
@@ -84,7 +84,7 @@ export const SearchPage: React.FC = () => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.5"
             >
               <path
                 strokeLinecap="round"
@@ -94,7 +94,7 @@ export const SearchPage: React.FC = () => {
             </svg>
             Back
           </Button>
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 ml-2 truncate">
+          <h2 className="text-base font-medium text-gray-900 dark:text-gray-100 ml-2 truncate">
             {selectedNote.title || "Untitled Note"}
           </h2>
         </div>
@@ -109,16 +109,16 @@ export const SearchPage: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+    <div className="h-full flex flex-col bg-white dark:bg-black">
+      <div className="py-4 px-6">
         <form onSubmit={handleSearch} className="flex">
           <div className="relative flex-1">
             <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.5"
             >
               <circle cx="11" cy="11" r="8" />
               <path d="M21 21l-4.35-4.35" />
@@ -129,7 +129,7 @@ export const SearchPage: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your notes..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border-0 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-700"
             />
             {query && (
               <button
@@ -144,11 +144,11 @@ export const SearchPage: React.FC = () => {
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-500"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth="1.5"
                 >
                   <path
                     d="M18 6L6 18M6 6l12 12"
@@ -160,17 +160,18 @@ export const SearchPage: React.FC = () => {
             )}
           </div>
           <Button
+            variant="ghost"
             type="submit"
-            className="ml-2"
+            className="ml-1 text-gray-600 dark:text-gray-300"
             disabled={!query.trim() || isSearching}
           >
             {isSearching ? (
               <svg
-                className="animate-spin w-4 h-4 mr-2"
+                className="animate-spin w-4 h-4"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
               >
                 <circle
                   className="opacity-25"
@@ -184,27 +185,28 @@ export const SearchPage: React.FC = () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-            ) : null}
-            Search
+            ) : (
+              "Search"
+            )}
           </Button>
         </form>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto px-6 pb-6">
         {error && (
-          <div className="p-4 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200">
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900 rounded-xl text-red-800 dark:text-red-300 text-sm">
             <p>{error.message}</p>
           </div>
         )}
 
         {isSearching ? (
-          <div className="flex items-center justify-center h-32">
+          <div className="flex flex-col items-center justify-center h-40">
             <svg
-              className="animate-spin w-8 h-8 text-gray-500"
+              className="w-6 h-6 text-gray-400 dark:text-gray-500"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.5"
             >
               <circle
                 className="opacity-25"
@@ -214,31 +216,35 @@ export const SearchPage: React.FC = () => {
                 stroke="currentColor"
               />
               <path
-                className="opacity-75"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                className="opacity-75 animate-spin origin-center"
+                d="M12 6v0m0 6v0m0 6v0"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </svg>
-            <span className="ml-2 text-gray-500 dark:text-gray-400">
+            <span className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Searching...
             </span>
           </div>
         ) : results.length > 0 ? (
           <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Found {results.length} result{results.length !== 1 ? "s" : ""}
+            <div className="text-xs text-gray-500 dark:text-gray-500 mb-3 font-medium">
+              {results.length} result{results.length !== 1 ? "s" : ""}
             </div>
-            {results.map((result) => (
-              <SearchResultItem
-                key={result.id}
-                result={result}
-                onClick={handleResultClick}
-              />
-            ))}
+            <div className="space-y-2">
+              {results.map((result) => (
+                <SearchResultItem
+                  key={result.id}
+                  result={result}
+                  onClick={handleResultClick}
+                />
+              ))}
+            </div>
           </div>
         ) : query && !isSearching ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="flex flex-col items-center justify-center h-60 text-center">
             <svg
-              className="w-16 h-16 text-gray-300 dark:text-gray-700 mb-4"
+              className="w-14 h-14 text-gray-300 dark:text-gray-700 mb-4"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -247,17 +253,17 @@ export const SearchPage: React.FC = () => {
               <circle cx="11" cy="11" r="8" />
               <path d="M21 21l-4.35-4.35" />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
+            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1">
               No results found
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Try a different search term or check your spelling
+            <p className="text-sm text-gray-500 dark:text-gray-500 max-w-xs">
+              Try a different search term
             </p>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="flex flex-col items-center justify-center h-60 text-center">
             <svg
-              className="w-16 h-16 text-gray-300 dark:text-gray-700 mb-4"
+              className="w-14 h-14 text-gray-300 dark:text-gray-700 mb-4"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -269,12 +275,11 @@ export const SearchPage: React.FC = () => {
                 strokeLinejoin="round"
               />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
+            <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1">
               Search Your Notes
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-              Enter keywords to search through your notes. The search uses AI to
-              find semantically relevant results.
+            <p className="text-sm text-gray-500 dark:text-gray-500 max-w-xs">
+              Enter keywords to search through your notes
             </p>
           </div>
         )}

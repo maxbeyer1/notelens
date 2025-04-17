@@ -12,29 +12,37 @@ export const SearchResultItem: React.FC<SearchResultProps> = ({
   result,
   onClick,
 }) => {
-  // Create a brief preview of the plaintext (first 160 characters)
+  // Create a brief preview of the plaintext (first 100 characters)
   const textPreview =
-    result.plaintext.slice(0, 160) +
-    (result.plaintext.length > 160 ? "..." : "");
+    result.plaintext.slice(0, 100) +
+    (result.plaintext.length > 100 ? "..." : "");
 
   // Format the date
   const formattedDate = formatDistanceToNow(new Date(result.modify_time), {
     addSuffix: true,
   });
 
-  // Calculate a percentage from similarity score
-  const relevancePercent = Math.round(result.similarity_score * 100);
+  const handleClick = () => {
+    // Open in Apple Notes app using the URI scheme
+    // const appleNotesURL = `notes://showNote?identifier=${result.uuid}`;
+
+    // Attempt to open the URL
+    // window.open(appleNotesURL, "_blank");
+
+    // Also call the original onClick handler to maintain the component
+    onClick(result);
+  };
 
   return (
     <div
-      className="p-4 border border-gray-200 dark:border-gray-800 rounded-lg mb-3 bg-white dark:bg-gray-950 hover:bg-gray-50 dark:hover:bg-gray-900 transition cursor-pointer shadow-sm"
-      onClick={() => onClick(result)}
+      className="p-3 mb-2 bg-white dark:bg-black rounded-xl cursor-pointer shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-900"
+      onClick={handleClick}
     >
       <div className="flex justify-between items-start">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 flex items-center">
+        <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-1 flex items-center truncate max-w-[80%]">
           {result.is_pinned && (
             <svg
-              className="w-4 h-4 mr-1 text-gray-500 dark:text-gray-400"
+              className="w-3 h-3 mr-1 text-gray-500 dark:text-gray-400 flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -45,17 +53,14 @@ export const SearchResultItem: React.FC<SearchResultProps> = ({
           )}
           {result.title || "Untitled Note"}
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {relevancePercent}% match
-        </span>
       </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
+      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-1.5">
         {textPreview}
       </p>
 
-      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-        <span>Modified {formattedDate}</span>
+      <div className="text-xs text-gray-500 dark:text-gray-500">
+        {formattedDate}
       </div>
     </div>
   );
