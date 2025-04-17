@@ -116,11 +116,15 @@ class SetupCompletePayload(BaseModel):
 class SearchResultItem(BaseModel):
     """Individual search result item."""
     id: int
+    uuid: str
     title: str
     plaintext: str
+    html: str
     similarity_score: float
-    # Add other fields as needed, matching Note model
-    # but only including what's necessary for search results
+    creation_time: datetime
+    modify_time: datetime
+    is_pinned: bool
+    # Only including the fields necessary for search results display
 
 
 class SearchResultsPayload(BaseModel):

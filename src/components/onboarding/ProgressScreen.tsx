@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
-import type { 
-  Stage, 
-  EmbeddingProgress, 
-  SetupProgressPayload, 
-  SetupCompletePayload 
+import type {
+  Stage,
+  EmbeddingProgress,
+  SetupProgressPayload,
+  SetupCompletePayload,
 } from "@/types/onboarding";
 import StageItem from "@/components/onboarding/StageItem";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -75,16 +75,16 @@ const ProgressScreen = () => {
 
       // Use our utility function to extract the payload
       let payload: SetupProgressPayload | null = null;
-      
+
       // Check if message directly contains 'payload' property
       if (message.payload) {
         payload = message.payload;
-      } 
+      }
       // Check if message is structured differently (direct fields)
       else if (message.stage) {
         payload = message;
       }
-      
+
       // Validate payload
       if (!payload || !payload.stage) {
         console.error("Invalid setup_progress message format:", message);
@@ -100,9 +100,9 @@ const ProgressScreen = () => {
       else if (stage === "processing") stageIndex = 2;
 
       // Check if this is the final processing update (all notes processed)
-      const isComplete = 
-        stage === "processing" && 
-        processing?.processed_notes === processing?.total_notes && 
+      const isComplete =
+        stage === "processing" &&
+        processing?.processed_notes === processing?.total_notes &&
         processing?.total_notes > 0;
 
       // Update stages
@@ -117,7 +117,7 @@ const ProgressScreen = () => {
         // Mark current stage as in-progress or completed
         if (status_type === "completed" || isComplete) {
           newStages[stageIndex].status = "completed";
-          
+
           // If there's a next stage, make it in-progress
           if (stageIndex < newStages.length - 1) {
             newStages[stageIndex + 1].status = "in-progress";
@@ -132,26 +132,38 @@ const ProgressScreen = () => {
       // Update embedding progress for processing stage
       if (stage === "processing" && processing && processing.total_notes) {
         console.log("Updating embedding progress with:", processing);
-        
+
         // Make sure we don't show more completed notes than total notes
         const completedNotes = Math.min(
           processing.processed_notes || 0,
           processing.total_notes
         );
-        
+
         setEmbeddingProgress({
           currentNote: processing.current_note || "",
           completedNotes,
           totalNotes: processing.total_notes,
           estimatedTimeRemaining: Math.max(
             0,
-            ((processing.total_notes - completedNotes) * 2) // Rough estimate: 2 seconds per note
+            (processing.total_notes - completedNotes) * 2 // Rough estimate: 2 seconds per note
           ),
         });
-        
+
         // If we've processed all notes, this is effectively complete
         if (completedNotes === processing.total_notes) {
           console.log("All notes processed, treating as setup completion");
+
+          // Mark all stages as completed
+          setStages((prev) =>
+            prev.map((stage) => ({ ...stage, status: "completed" }))
+          );
+
+          // Complete onboarding after a short delay to show completion
+          setTimeout(async () => {
+            await completeOnboarding();
+            // Force navigation to ensure redirect happens
+            window.location.href = "/search";
+          }, 1500);
         }
       }
     });
@@ -168,16 +180,16 @@ const ProgressScreen = () => {
       console.log("Received setup_complete:", message);
       handleSetupComplete(message);
     });
-    
+
     const resultsUnsubscribe = subscribe("setup_results", (message: any) => {
       console.log("Received setup_results:", message);
       handleSetupComplete(message);
     });
-    
+
     function handleSetupComplete(message: any) {
       // Try to extract success status using various possible message formats
       let success = false;
-      
+
       // Case 1: message.payload.success exists
       if (message?.payload?.success === true) {
         success = true;
@@ -194,9 +206,9 @@ const ProgressScreen = () => {
       else if (message?.status === "success") {
         success = true;
       }
-      
+
       console.log("Setup completion status:", success);
-      
+
       if (success) {
         // Mark all stages as completed
         setStages((prev) =>
@@ -204,16 +216,18 @@ const ProgressScreen = () => {
         );
 
         // Complete onboarding after a short delay to show completion
-        setTimeout(() => {
-          completeOnboarding();
-        }, 1000);
+        setTimeout(async () => {
+          await completeOnboarding();
+          // Force navigation to ensure redirect happens
+          window.location.href = "/search";
+        }, 1500);
       } else {
-        const errorMsg = 
-          message?.payload?.error || 
-          message?.error || 
-          message?.payload?.results?.error || 
+        const errorMsg =
+          message?.payload?.error ||
+          message?.error ||
+          message?.payload?.results?.error ||
           "Unknown error";
-          
+
         if (errorMsg !== "Unknown error") {
           console.error("Setup failed:", errorMsg);
         }

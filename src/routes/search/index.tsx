@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { store } from "@/lib/store";
+import { SearchPage } from "@/components/search/SearchPage";
 
 export const Route = createFileRoute("/search/")({
   beforeLoad: async () => {
@@ -13,8 +14,5 @@ export const Route = createFileRoute("/search/")({
       throw redirect({ to: "/onboarding" });
     }
   },
-  component: () => (
-    // TODO: search component here
-    <div>Search Interface</div>
-  ),
+  component: SearchPage,
 });

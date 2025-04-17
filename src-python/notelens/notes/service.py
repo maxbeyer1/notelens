@@ -297,7 +297,14 @@ class NoteService:
 
             return [
                 {
-                    **dict(row),
+                    'id': row['id'],
+                    'uuid': row['uuid'],
+                    'title': row['title'],
+                    'plaintext': row['plaintext'],
+                    'html': row['html'],
+                    'creation_time': row['creation_time'],
+                    'modify_time': row['modify_time'],
+                    'is_pinned': bool(row['is_pinned']),
                     # Convert distance to similarity
                     'similarity_score': 1 - row['distance']
                 }
@@ -342,7 +349,14 @@ class NoteService:
 
             return [
                 {
-                    **dict(row),
+                    'id': row['id'],
+                    'uuid': row['uuid'],
+                    'title': row['title'],
+                    'plaintext': row['plaintext'],
+                    'html': row['html'],
+                    'creation_time': row['creation_time'],
+                    'modify_time': row['modify_time'],
+                    'is_pinned': bool(row['is_pinned']),
                     'similarity_score': 1 - row['distance']
                 }
                 for row in results
