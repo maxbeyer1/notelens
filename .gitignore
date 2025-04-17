@@ -390,6 +390,8 @@ debug/
 .history
 .ionide
 
+CLAUDE.md
+
 # End of https://www.toptal.com/developers/gitignore/api/python,node,rust,react,macos,visualstudiocode
 
 # PROJECT SPECIFIC

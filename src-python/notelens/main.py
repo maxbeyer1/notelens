@@ -7,7 +7,7 @@ import sys
 import asyncio
 import concurrent.futures
 from functools import partial
-import time
+import uuid
 
 from notelens.core.message_bus import (
     MessageBus, Message, SystemAction, SetupStage,
@@ -23,6 +23,10 @@ from notelens.notes.service import NoteService
 from notelens.notes.tracker import NoteTracker
 from notelens.notes.parser.parser import NotesParser
 from notelens.websocket.server import NoteLensWebSocket
+from notelens.websocket.models import (
+    SetupStatusType, SetupCompleteResponse, SetupCompletePayload,
+    MessageType, SetupStats, MessageStatus
+)
 
 ### LOGGING CONFIG ###
 
@@ -165,7 +169,8 @@ class NoteLensApp:
 
                         elif isinstance(payload, SetupProgressMessage):
                             # Handle setup progress updates
-                            await self._handle_setup_progress(message)
+                            # await self._handle_setup_progress(message)
+                            print("Received setup progress message")
 
                         elif isinstance(payload, SetupCompleteMessage):
                             # Handle setup completion
@@ -206,7 +211,7 @@ class NoteLensApp:
             # Stage 1: Ensure services are initialized and started
             await self.setup_manager.start_stage(
                 SetupStage.INITIALIZING,
-                "Initializing services..."
+                SetupStatusType.CHECKING_SERVICES
             )
 
             # Check all services
@@ -228,12 +233,12 @@ class NoteLensApp:
                         ', '.join(unavailable_services)}"
                 )
 
-            await self.setup_manager.complete_stage("Service initialization complete")
+            await self.setup_manager.complete_stage(SetupStatusType.SERVICES_READY)
 
             # Stage 2: Parse Notes database
             await self.setup_manager.start_stage(
                 SetupStage.PARSING,
-                "Reading Notes database..."
+                SetupStatusType.READING_DATABASE
             )
 
             parser = NotesParser()
@@ -243,26 +248,18 @@ class NoteLensApp:
             if not parser_data:
                 raise ValueError("Parser returned no data")
 
-            await self.setup_manager.complete_stage("Notes database parsed successfully")
+            await self.setup_manager.complete_stage(
+                SetupStatusType.DATABASE_READ
+            )
 
             # Stage 3: Process Notes
             await self.setup_manager.start_stage(
                 SetupStage.PROCESSING,
-                "Beginning note processing..."
+                SetupStatusType.PREPARING_NOTES
             )
-
-            # Create note tracker with setup manager for progress updates
-            # note_tracker = NoteTracker(
-            #     note_service=self.note_service,
-            #     setup_manager=setup_manager
-            # )
 
             # Process notes - note_tracker will handle progress updates
             stats = await self.note_tracker.process_notes(parser_data)
-
-            # Complete setup
-            # self.setup_completed = True
-            # self.initial_sync_done = True
 
             await self.message_bus.send(SetupCompleteMessage(
                 success=True,
@@ -288,45 +285,55 @@ class NoteLensApp:
                     "error": str(e)
                 })
 
-    async def _handle_setup_progress(self, message: Message[SetupProgressMessage]):
-        """Handle setup progress updates."""
-        logger.debug(
-            "Setup progress - Stage: %s, Status: %s, Notes: %d/%d",
-            message.payload.stage.name,
-            message.payload.status,
-            message.payload.processed_notes or 0,
-            message.payload.total_notes or 0
-        )
+    # async def _handle_setup_progress(self, message: Message[SetupProgressMessage]):
+    #     """Handle setup progress updates."""
+    #     logger.debug(
+    #         "Setup progress - Stage: %s, Status: %s, Notes: %d/%d",
+    #         message.payload.stage.name,
+    #         message.payload.status,
+    #         message.payload.processed_notes or 0,
+    #         message.payload.total_notes or 0
+    #     )
 
-        before_broadcast = time.time()
-        logger.debug(
-            "Setup progress update about to broadcast at %s", before_broadcast)
+    #     before_broadcast = time.time()
+    #     logger.debug(
+    #         "Setup progress update about to broadcast at %s", before_broadcast)
 
-        # Broadcast progress to websocket clients
-        await self.websocket_server.broadcast(
-            {
-                "type": "setup_progress",
-                "stage": message.payload.stage.name.lower(),
-                "status": message.payload.status,
-                "total_notes": message.payload.total_notes,
-                "processed_notes": message.payload.processed_notes,
-                "current_note": message.payload.current_note,
-                "stats": message.payload.stats
-            }
-        )
+    #     # Broadcast progress to websocket clients
+    #     await self.websocket_server.broadcast(
+    #         {
+    #             "type": "setup_progress",
+    #             "stage": message.payload.stage.name.lower(),
+    #             "status": message.payload.status,
+    #             "total_notes": message.payload.total_notes,
+    #             "processed_notes": message.payload.processed_notes,
+    #             "current_note": message.payload.current_note,
+    #             "stats": message.payload.stats
+    #         }
+    #     )
 
-        after_broadcast = time.time()
-        logger.debug(
-            "Setup progress broadcast completed at %s (took %.2f seconds)",
-            after_broadcast,
-            after_broadcast - before_broadcast
-        )
+    #     after_broadcast = time.time()
+    #     logger.debug(
+    #         "Setup progress broadcast completed at %s (took %.2f seconds)",
+    #         after_broadcast,
+    #         after_broadcast - before_broadcast
+    #     )
 
     async def _handle_setup_complete(self, message: Message[SetupCompleteMessage]):
         """Handle setup completion."""
         if message.payload.success:
             logger.info("Setup completed successfully")
             logger.info("Final statistics: %s", message.payload.stats)
+
+            complete_response = SetupCompleteResponse(
+                type=MessageType.SETUP_COMPLETE,
+                request_id=str(uuid.uuid4()),
+                status=MessageStatus.SUCCESS,
+                payload=SetupCompletePayload(
+                    success=True,
+                    stats=SetupStats(**(message.payload.stats or {}))
+                )
+            )
 
             # Broadcast completion to websocket clients
             await self.websocket_server.broadcast(
