@@ -118,15 +118,21 @@ class SetupManager:
         """Send progress update through the message bus."""
         logger.debug("Sending setup progress: %s", status)
 
-        # Send progress update to WebSocket clients
-        await self.websocket_server.broadcast(
-            {
-                "type": "setup_progress",
-                "stage": self.current_stage.name.lower(),
-                "status": status,
-                "total_notes": self.total_notes,
-                "processed_notes": self.processed_notes,
-                "current_note": current_note,
-                "stats": self.current_stats.model_dump(mode="json") if self.current_stats else None
-            }
+        # Send progress update to WebSocket clients using proper Pydantic models
+        progress_response = SetupProgressResponse(
+            type=MessageType.SETUP_PROGRESS,
+            request_id=str(uuid.uuid4()),  # Generate new ID for broadcast
+            status=MessageStatus.IN_PROGRESS,
+            payload=SetupProgressPayload(
+                stage=WSSetupStage(self.current_stage.name.lower()),
+                status_type=SetupStatusType.PROCESSING_NOTES if "Processing" in status else SetupStatusType.COMPLETED,
+                processing={
+                    "total_notes": self.total_notes,
+                    "processed_notes": self.processed_notes,
+                    "current_note": current_note
+                },
+                stats=self.current_stats
+            )
         )
+        
+        await self.websocket_server.broadcast(progress_response.model_dump(mode="json"))

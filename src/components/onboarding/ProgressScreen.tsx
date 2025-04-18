@@ -70,6 +70,8 @@ const ProgressScreen = () => {
   useEffect(() => {
     if (!isConnected) return;
 
+    console.log("Subscribing to setup_progress messages...");
+
     const unsubscribe = subscribe("setup_progress", (message: any) => {
       console.log("Received setup progress:", message);
 
@@ -103,7 +105,7 @@ const ProgressScreen = () => {
       const isComplete =
         stage === "processing" &&
         processing?.processed_notes === processing?.total_notes &&
-        processing?.total_notes > 0;
+        (processing?.total_notes || 0) > 0;
 
       // Update stages
       setStages((prev) => {
@@ -169,7 +171,7 @@ const ProgressScreen = () => {
     });
 
     return () => unsubscribe();
-  }, [isConnected, subscribe]);
+  }, [isConnected, subscribe, completeOnboarding]);
 
   // Listen for setup complete message and results
   useEffect(() => {
