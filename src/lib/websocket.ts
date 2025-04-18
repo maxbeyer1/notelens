@@ -26,7 +26,7 @@ export class WebSocketClient {
   private messageHandlers: Map<string, Set<(payload: any) => void>> = new Map();
 
   // Zustand store for managing WebSocket state
-  public store = create<WebSocketState>()((set) => ({
+  public store = create<WebSocketState>()(() => ({
     isConnected: false,
     isConnecting: false,
     messageQueue: [],
@@ -42,7 +42,7 @@ export class WebSocketClient {
     return WebSocketClient.instance;
   }
 
-  public async connect(url: string = "ws://localhost:8000"): Promise<void> {
+  public async connect(url: string = "ws://localhost:8003"): Promise<void> {
     if (this.ws || this.store.getState().isConnecting) return;
 
     this.store.setState({ isConnecting: true });

@@ -10,7 +10,7 @@ import sys
 class DatabaseConfig:
     """Configuration for the database."""
     # Using the standard macOS Application Support directory
-    db_path: Path = Path.home() / "Library" / "Application Support" / \
+    db_path: Path = Path("~").expanduser() / "Library" / "Application Support" / \
         "NoteLens" / "notelens.db"
     vector_dimension: int = 1536  # OpenAI's default embedding dimension
 

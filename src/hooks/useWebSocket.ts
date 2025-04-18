@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useStore } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 
 import { WebSocketClient } from "@/lib/websocket";
 
@@ -7,12 +8,19 @@ interface UseWebSocketOptions {
   onConnected?: () => void;
   onDisconnected?: () => void;
   onError?: (error: Error) => void;
+  autoStartBackend?: boolean;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const wsClient = WebSocketClient.getInstance();
-
   const { isConnected, isConnecting, lastError } = useStore(wsClient.store);
+
+  // Start the backend if autoStartBackend is true
+  useEffect(() => {
+    if (options.autoStartBackend) {
+      startBackend().catch(console.error);
+    }
+  }, [options.autoStartBackend]);
 
   // Setup connection status listeners
   useEffect(() => {
@@ -31,16 +39,30 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return () => {
       unsubscribe();
     };
-  }, [
-    // options.onConnected,
-    // options.onDisconnected,
-    // options.onError,
-    options,
-    wsClient,
-    isConnected,
-    isConnecting,
-    lastError,
-  ]);
+  }, [options, wsClient, isConnected, isConnecting, lastError]);
+
+  // Backend management functions
+  const startBackend = useCallback(async () => {
+    try {
+      const result = await invoke<string>("start_backend");
+      console.log("Backend started:", result);
+      return result;
+    } catch (error) {
+      console.error("Failed to start backend:", error);
+      throw error;
+    }
+  }, []);
+
+  const stopBackend = useCallback(async () => {
+    try {
+      const result = await invoke<string>("stop_backend");
+      console.log("Backend stopped:", result);
+      return result;
+    } catch (error) {
+      console.error("Failed to stop backend:", error);
+      throw error;
+    }
+  }, []);
 
   // Wrap methods in useCallback to maintain reference equality
   const connect = useCallback(
@@ -59,12 +81,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   );
 
   return {
-    isConnected: isConnected,
-    isConnecting: isConnecting,
-    lastError: lastError,
+    isConnected,
+    isConnecting,
+    lastError,
     connect,
     disconnect,
     send,
     subscribe,
+    startBackend,
+    stopBackend,
   };
 }

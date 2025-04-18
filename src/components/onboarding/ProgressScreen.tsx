@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 import type {
   Stage,
   EmbeddingProgress,
   SetupProgressPayload,
-  SetupCompletePayload,
 } from "@/types/onboarding";
 import StageItem from "@/components/onboarding/StageItem";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -13,7 +12,9 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { useOnboarding } from "@/hooks/useOnboarding";
 
 const ProgressScreen = () => {
-  const { isConnected, connect, send, subscribe } = useWebSocket();
+  const { isConnected, connect, send, subscribe } = useWebSocket({
+    autoStartBackend: true,
+  });
   const { completeOnboarding } = useOnboarding();
 
   const [stages, setStages] = useState<Stage[]>([
@@ -91,7 +92,7 @@ const ProgressScreen = () => {
         return;
       }
 
-      const { stage, status_type, processing, stats } = payload;
+      const { stage, status_type, processing } = payload;
 
       // Map backend stage to frontend stage index
       let stageIndex = 0;
@@ -103,7 +104,7 @@ const ProgressScreen = () => {
       const isComplete =
         stage === "processing" &&
         processing?.processed_notes === processing?.total_notes &&
-        processing?.total_notes > 0;
+        (processing?.total_notes || 0) > 0;
 
       // Update stages
       setStages((prev) => {

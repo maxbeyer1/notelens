@@ -1,50 +1,73 @@
-# React + TypeScript + Vite
+# NoteLens
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Semantic search for your Apple Notes. Built with Tauri, React, and Python.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `src` - React frontend
+- `src-tauri` - Rust/Tauri app shell
+- `src-python` - Python backend for Apple Notes integration
 
-## Expanding the ESLint configuration
+## Building for macOS
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+NoteLens uses a Python backend to interface with Apple Notes, which is embedded in the Tauri application as a sidecar binary.
 
-- Configure the top-level `parserOptions` property like this:
+### Prerequisites
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- Node.js (18+) and pnpm
+- Rust and Cargo (latest stable)
+- Python 3.12+
+- Poetry (Python package manager)
+- Xcode command line tools
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+### Development Setup
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+1. Install frontend dependencies:
+   ```
+   pnpm install
+   ```
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+2. Install Python dependencies:
+   ```
+   cd src-python
+   poetry install
+   cd ..
+   ```
+
+3. Start the development server:
+   ```
+   pnpm tauri dev
+   ```
+
+This will automatically:
+- Start the Vite development server for the frontend
+- Build and run the Tauri application
+- Use a local Python process for backend functionality
+
+### Production Build
+
+To build the production macOS application:
+
+1. Run the build script:
+   ```
+   ./build-macos-app.sh
+   ```
+
+The build script will:
+1. Create a standalone executable from the Python backend using PyInstaller
+2. Configure the executable as a Tauri sidecar with the correct target triple
+3. Build the Tauri application with the embedded Python backend
+
+The final application will be in `src-tauri/target/release/bundle/`.
+
+## Architecture
+
+- **Frontend**: React, TypeScript, and TailwindCSS
+- **App Shell**: Tauri (Rust)
+- **Backend**: Python for Apple Notes integration
+
+The backend communicates with the frontend via WebSocket, with the Tauri application managing the Python process lifecycle.
+
+## Permissions
+
+The application requires access to your Apple Notes database to provide search functionality. All data is processed locally and never leaves your computer.

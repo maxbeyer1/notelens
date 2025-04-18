@@ -42,7 +42,7 @@ class NoteLensWebSocket:
         ```
     """
 
-    def __init__(self, message_bus: MessageBus, host: str = "localhost", port: int = 8000):
+    def __init__(self, message_bus: MessageBus, host: str = "localhost", port: int = 8003):
         self.host = host
         self.port = port
         self.message_bus = message_bus

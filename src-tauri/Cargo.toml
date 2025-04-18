@@ -1,8 +1,8 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "NoteLens - Semantic search for Apple Notes"
+authors = ["Max Beyer"]
 license = ""
 repository = ""
 edition = "2021"
@@ -25,6 +25,12 @@ tauri = { version = "2.2.0", features = [] }
 tauri-plugin-log = "2.0.0-rc"
 tauri-plugin-store = "2"
 tauri-plugin-websocket = "2"
+tauri-plugin-shell = "2"
+tokio = { version = "1", features = ["full"] }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.26"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]

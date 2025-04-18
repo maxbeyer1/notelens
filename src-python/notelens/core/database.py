@@ -81,7 +81,21 @@ class DatabaseManager:
         Args:
             db_path: Optional path to the database file. If None, uses the default from config.
         """
-        self.db_path = db_path or config.database.db_path
+        # Ensure we use a properly expanded path that's independent of how home is resolved
+        if db_path:
+            self.db_path = db_path
+        else:
+            # Create proper path with tilde expansion to make sure we get the right home directory
+            home_dir = str(Path("~").expanduser())
+            self.db_path = Path(
+                f"{home_dir}/Library/Application Support/NoteLens/notelens.db")
+
+        # Log the path we're using
+        logger.info(f"Database path set to: {self.db_path}")
+
+        # Make sure the parent directory exists
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
         self._connection: Optional[sqlite3.Connection] = None
 
     def _init_database(self) -> None:
@@ -132,24 +146,49 @@ class DatabaseManager:
             # Load extensions
             package_root = Path(__file__).parent.parent
             lib_dir = package_root / "lib"
-            extension_path = lib_dir / "rembed0.dylib"
 
-            # Verify the path exists
-            extension_path = lib_dir / "rembed0.dylib"
-            if not extension_path.exists():
+            # Try to find extension both in normal location and in pyinstaller bundle
+            rembed_extension_path = lib_dir / "rembed0.dylib"
+            vec_extension_path = lib_dir / "vec0.dylib"
+
+            # Add special handling for PyInstaller bundles
+            import sys
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                # Running as PyInstaller bundle
+                # meipass_lib = Path(sys._MEIPASS) / \
+                #     "notelens" / "lib" / "rembed0.dylib"
+                rembed_meipass_lib = Path(sys._MEIPASS) / \
+                    "notelens" / "lib" / "rembed0.dylib"
+                vec_meipass_lib = Path(sys._MEIPASS) / \
+                    "notelens" / "lib" / "vec0.dylib"
+
+                if rembed_meipass_lib.exists():
+                    rembed_extension_path = rembed_meipass_lib
+                else:
+                    logger.error(
+                        "rembed0.dylib not found in PyInstaller bundle")
+
+                if vec_meipass_lib.exists():
+                    vec_extension_path = vec_meipass_lib
+                else:
+                    logger.error("vec0.dylib not found in PyInstaller bundle")
+
+            # Verify the extension exists
+            if not rembed_extension_path.exists():
                 raise FileNotFoundError(
-                    f"sqlite-rembed extension not found at {extension_path}. "
+                    f"sqlite-rembed extension not found at {rembed_extension_path}. "
                     "Please ensure the extension file is in the correct location."
                 )
 
-            conn.load_extension(str(extension_path))
-            sqlite_vec.load(conn)
+            conn.load_extension(str(rembed_extension_path))
+            conn.load_extension(str(vec_extension_path))  # Load sqlite-vec
+            # sqlite_vec.load(conn)
 
             # Register client in temp table
-            conn.execute("""
-                INSERT INTO temp.rembed_clients(name, options)
-                VALUES (?, ?)
-            """, [config.embedding.model_name, config.embedding.client_name])
+            # conn.execute("""
+            #     INSERT INTO temp.rembed_clients(name, options)
+            #     VALUES (?, ?)
+            # """, [config.embedding.model_name, config.embedding.client_name])
 
             # conn.enable_load_extension(False)
             self._connection = conn
@@ -173,16 +212,16 @@ class DatabaseManager:
             logger.info("sqlite-rembed version: %s", rembed_version[0])
 
             # Test the embedding generation with a separate query
-            test_result = conn.execute("""
-                SELECT rembed('text-embedding-3-small', 'This is a test sentence')
-            """).fetchone()
+            # test_result = conn.execute("""
+            #     SELECT rembed('text-embedding-3-small', 'This is a test sentence')
+            # """).fetchone()
 
-            if test_result and test_result[0]:
-                logger.info("Rembed extension test successful - generated embedding of length %d",
-                            len(struct.unpack(f"{config.database.vector_dimension}f", test_result[0])))
-            else:
-                logger.error(
-                    "Rembed extension test failed - result: %s", test_result)
+            # if test_result and test_result[0]:
+            #     logger.info("Rembed extension test successful - generated embedding of length %d",
+            #                 len(struct.unpack(f"{config.database.vector_dimension}f", test_result[0])))
+            # else:
+            #     logger.error(
+            #         "Rembed extension test failed - result: %s", test_result)
 
             # Initialize the database schema
             self._init_database()
@@ -190,7 +229,8 @@ class DatabaseManager:
             # conn.enable_load_extension(False)
             # conn.close()
         except Exception as e:
-            logger.error("Failed to setup database: %s", e)
+            logger.error(
+                "Failed to setup database: %s at path %s", e, self.db_path)
             raise
 
     def get_connection(self):

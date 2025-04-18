@@ -1,4 +1,3 @@
-import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 
@@ -89,7 +88,9 @@ const StageItem = ({ stage, isLast, embeddingProgress }: StageItemProps) => {
                   {formatNumber(embeddingProgress.totalNotes)} notes
                 </span>
                 <span>
-                  {formatTimeRemaining(embeddingProgress.estimatedTimeRemaining)}{" "}
+                  {formatTimeRemaining(
+                    embeddingProgress.estimatedTimeRemaining
+                  )}{" "}
                   remaining
                 </span>
               </div>
@@ -113,7 +114,10 @@ const StageItem = ({ stage, isLast, embeddingProgress }: StageItemProps) => {
                 animate={{ opacity: 1 }}
                 key={embeddingProgress.currentNote} // Trigger animation on note change
               >
-                Processing: <span className="font-medium">{embeddingProgress.currentNote}</span>
+                Processing:{" "}
+                <span className="font-medium">
+                  {embeddingProgress.currentNote}
+                </span>
               </motion.div>
             )}
           </motion.div>

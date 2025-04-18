@@ -8,6 +8,24 @@
   "permissions": [
     "core:default",
     "store:default",
-    "websocket:default"
+    "websocket:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/notelens-backend",
+          "sidecar": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/notelens-backend",
+          "sidecar": true
+        }
+      ]
+    }
   ]
 }

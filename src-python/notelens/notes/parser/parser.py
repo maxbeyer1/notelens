@@ -46,12 +46,21 @@ class NotesParser:
     @property
     def temp_base(self) -> Path:
         """Base directory for temporary files."""
-        temp_dir = Path.home() / "Library" / "Application Support" / "NoteLens" / "temp"
+        # Create proper path with tilde expansion to make sure we get the right home directory
+        home_dir = str(Path("~").expanduser())
+        temp_dir = Path(f"{home_dir}/Library/Application Support/NoteLens/temp")
         temp_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Using temp directory: {temp_dir}")
         return temp_dir
 
     def _verify_installations(self) -> None:
         """Verify Ruby and parser installations."""
+        # Skip verification if we're in a PyInstaller bundle - we'll handle errors at runtime
+        import sys
+        if getattr(sys, 'frozen', False):
+            logger.info("Running from frozen bundle - skipping installation verification")
+            return
+            
         if not self.ruby_script_path.exists():
             raise ParserNotFoundError(
                 f"Parser not found at: {self.ruby_script_path}")
@@ -80,10 +89,29 @@ class NotesParser:
         """Setup Ruby environment variables and paths."""
         # Setup environment variables
         self.ruby_env = os.environ.copy()
+        
+        # Log the parser directory path
+        logger.debug(f"Parser directory: {self.parser_dir}")
+        
+        # For development environment
+        bundle_path = self.parser_dir / 'vendor' / 'bundle'
+        gem_path = self.parser_dir / 'vendor' / 'bundle' / 'ruby'
+        
+        # Ensure these paths actually exist before setting them
+        if not bundle_path.exists():
+            logger.warning(f"Bundle path {bundle_path} does not exist")
+            # If we're running from PyInstaller bundle, don't set these paths
+            if getattr(sys, 'frozen', False):
+                logger.info("Running from frozen bundle - skipping Ruby environment setup")
+                return
+                
+        # Setup environment
         self.ruby_env.update({
-            'BUNDLE_PATH': str(self.parser_dir / 'vendor' / 'bundle'),
-            'GEM_PATH': str(self.parser_dir / 'vendor' / 'bundle' / 'ruby'),
+            'BUNDLE_PATH': str(bundle_path),
+            'GEM_PATH': str(gem_path),
         })
+        
+        logger.debug(f"Ruby environment set: BUNDLE_PATH={bundle_path}, GEM_PATH={gem_path}")
 
     def parse_database(self, retries: int = MAX_RETRIES) -> Optional[Dict]:
         """
