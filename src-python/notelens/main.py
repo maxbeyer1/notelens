@@ -8,6 +8,7 @@ import asyncio
 import concurrent.futures
 from functools import partial
 import uuid
+import time
 
 from notelens.core.message_bus import (
     MessageBus, Message, SystemAction, SetupStage,
@@ -169,8 +170,7 @@ class NoteLensApp:
 
                         elif isinstance(payload, SetupProgressMessage):
                             # Handle setup progress updates
-                            # await self._handle_setup_progress(message)
-                            print("Received setup progress message")
+                            await self._handle_setup_progress(message)
 
                         elif isinstance(payload, SetupCompleteMessage):
                             # Handle setup completion
@@ -242,8 +242,51 @@ class NoteLensApp:
             )
 
             parser = NotesParser()
+            
+            # Create a simpler progress callback to minimize thread communication issues
+            # This function gets called from a separate thread via run_coroutine_threadsafe
+            async def parsing_progress_callback(progress: float, message: str):
+                logger.debug(f"Parsing progress: {progress:.2f} - {message}")
+                
+                # Use only the direct websocket broadcast method since it's more reliable
+                # This simplifies our approach and reduces points of failure
+                try:
+                    from notelens.websocket.models import SetupStatusType
+                    await self.websocket_server.broadcast({
+                        "type": "setup_progress",
+                        "stage": "parsing",
+                        "status_type": SetupStatusType.READING_DATABASE,
+                        "status": f"Reading database: {message}",
+                        "processing": {
+                            "current_note": message
+                        }
+                    })
+                except Exception as e:
+                    logger.error(f"Error in progress callback: {str(e)}")
+                    # Continue execution and don't fail the parsing process
+            
+            # Store a reference to the current running loop before starting the thread
+            current_loop = asyncio.get_running_loop()
+            
+            # Create wrapper function to call the callback from the executor
+            def parse_with_progress():
+                # Create a synchronous callback that schedules the async callback
+                def sync_callback(progress: float, message: str):
+                    # Use the stored loop reference instead of trying to get it in the thread
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            parsing_progress_callback(progress, message),
+                            current_loop
+                        )
+                    except Exception as e:
+                        # Log any errors but don't crash the parser
+                        print(f"Progress callback error (non-fatal): {str(e)}")
+                
+                # Call parser with our callback
+                return parser.parse_database(progress_callback=sync_callback)
+            
             # Run in thread pool to avoid blocking
-            parser_data = await self._run_in_executor(parser.parse_database)
+            parser_data = await self._run_in_executor(parse_with_progress)
 
             if not parser_data:
                 raise ValueError("Parser returned no data")
@@ -285,39 +328,30 @@ class NoteLensApp:
                     "error": str(e)
                 })
 
-    # async def _handle_setup_progress(self, message: Message[SetupProgressMessage]):
-    #     """Handle setup progress updates."""
-    #     logger.debug(
-    #         "Setup progress - Stage: %s, Status: %s, Notes: %d/%d",
-    #         message.payload.stage.name,
-    #         message.payload.status,
-    #         message.payload.processed_notes or 0,
-    #         message.payload.total_notes or 0
-    #     )
+    async def _handle_setup_progress(self, message: Message[SetupProgressMessage]):
+        """Handle setup progress updates."""
+        logger.debug(
+            "Setup progress - Stage: %s, Status: %s, Notes: %d/%d",
+            message.payload.stage.name,
+            message.payload.status,
+            message.payload.processed_notes or 0,
+            message.payload.total_notes or 0
+        )
 
-    #     before_broadcast = time.time()
-    #     logger.debug(
-    #         "Setup progress update about to broadcast at %s", before_broadcast)
-
-    #     # Broadcast progress to websocket clients
-    #     await self.websocket_server.broadcast(
-    #         {
-    #             "type": "setup_progress",
-    #             "stage": message.payload.stage.name.lower(),
-    #             "status": message.payload.status,
-    #             "total_notes": message.payload.total_notes,
-    #             "processed_notes": message.payload.processed_notes,
-    #             "current_note": message.payload.current_note,
-    #             "stats": message.payload.stats
-    #         }
-    #     )
-
-    #     after_broadcast = time.time()
-    #     logger.debug(
-    #         "Setup progress broadcast completed at %s (took %.2f seconds)",
-    #         after_broadcast,
-    #         after_broadcast - before_broadcast
-    #     )
+        # Broadcast progress to websocket clients
+        await self.websocket_server.broadcast(
+            {
+                "type": "setup_progress",
+                "stage": message.payload.stage.name.lower(),
+                "status": message.payload.status,
+                "total_notes": message.payload.total_notes,
+                "processed_notes": message.payload.processed_notes,
+                "current_note": message.payload.current_note,
+                "stats": message.payload.stats
+            }
+        )
+        
+        logger.debug("Setup progress broadcast completed")
 
     async def _handle_setup_complete(self, message: Message[SetupCompleteMessage]):
         """Handle setup completion."""

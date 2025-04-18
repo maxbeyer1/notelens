@@ -126,6 +126,16 @@ const ProgressScreen = () => {
           }
         } else {
           newStages[stageIndex].status = "in-progress";
+          
+          // If we have a more detailed status message, update the description
+          if (stage === "parsing") {
+            // Check for either status (what we're adding) or status from processing.current_note
+            const statusMessage = payload.status || 
+                                 payload.processing?.current_note || 
+                                 "Reading your notes database...";
+            console.log("Setting parsing description to:", statusMessage);
+            newStages[stageIndex].description = statusMessage;
+          }
         }
 
         return newStages;

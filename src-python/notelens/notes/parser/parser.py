@@ -85,12 +85,15 @@ class NotesParser:
             'GEM_PATH': str(self.parser_dir / 'vendor' / 'bundle' / 'ruby'),
         })
 
-    def parse_database(self, retries: int = MAX_RETRIES) -> Optional[Dict]:
+    def parse_database(self, retries: int = MAX_RETRIES, progress_callback=None) -> Optional[Dict]:
         """
         Parse the Notes database using apple_cloud_notes_parser.
 
         Args:
             retries: Number of retries if parsing fails (default: MAX_RETRIES)
+            progress_callback: Optional callback function to report parsing progress
+                              The callback receives a float 0.0-1.0 indicating progress
+                              and a string message describing the current operation
 
         Returns:
             Dict containing the parsed JSON data or None if parsing fails
@@ -106,6 +109,14 @@ class NotesParser:
 
         logger.info("Attempting to parse database: %s", db_path.parent)
 
+        # Call progress callback with initial status
+        if progress_callback:
+            try:
+                progress_callback(0.0, "Starting database parsing")
+            except Exception as e:
+                # Log but don't crash if the callback fails
+                logger.warning(f"Progress callback failed (non-fatal): {str(e)}")
+
         # Create unique temporary directory
         temp_dir = self.temp_base / datetime.now().strftime('%Y%m%d_%H%M%S')
         temp_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +125,11 @@ class NotesParser:
         try:
             for attempt in range(retries):
                 try:
-                    return self._execute_parser(db_path, temp_dir)
+                    # Update progress for this attempt
+                    if progress_callback:
+                        progress_callback(0.1, f"Parsing database (attempt {attempt + 1}/{retries})")
+                    
+                    return self._execute_parser(db_path, temp_dir, progress_callback)
                 except (ParserExecutionError, OutputError) as e:
                     if attempt == retries - 1:
                         raise
@@ -126,7 +141,7 @@ class NotesParser:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
-    def _execute_parser(self, db_path: Path, temp_dir: Path) -> Dict:
+    def _execute_parser(self, db_path: Path, temp_dir: Path, progress_callback=None) -> Dict:
         """Execute the Ruby parser and process output."""
         try:
             # Prepare command with proper bundle environment
@@ -150,6 +165,10 @@ class NotesParser:
                 logger.debug("Environment: %s",
                              {k: v for k, v in self.ruby_env.items()
                               if k in ['BUNDLE_PATH', 'GEM_PATH']})
+            
+            # Update progress callback
+            if progress_callback:
+                progress_callback(0.2, "Launching database parser")
 
             # Run the Ruby parser
             result = subprocess.run(
@@ -161,6 +180,10 @@ class NotesParser:
                 env=self.ruby_env,
                 timeout=self.PARSER_TIMEOUT
             )
+            
+            # Update progress callback
+            if progress_callback:
+                progress_callback(0.7, "Parser completed, processing results")
 
             # Log outputs based on environment mode
             if config.env_mode == "DEV":
@@ -179,6 +202,10 @@ class NotesParser:
                         logger.debug("  %s", path)
                 raise OutputError("JSON output file not found")
 
+            # Update progress callback
+            if progress_callback:
+                progress_callback(0.8, "Reading parser output file")
+
             try:
                 with json_file.open() as f:
                     data = json.load(f)
@@ -188,13 +215,17 @@ class NotesParser:
             except Exception as e:
                 raise OutputError(f"Failed to read JSON file: {e}") from e
 
+            # Update progress callback
+            if progress_callback:
+                progress_callback(0.9, "Validating parser output")
+
             # Validate basic structure
             if not self._validate_json_structure(data):
                 raise OutputError("Invalid JSON structure in parser output")
 
-            # Print summary in dev mode
-            # if config.env_mode == "DEV":
-            #     self._print_truncated_json(data)
+            # Update progress callback - completed
+            if progress_callback:
+                progress_callback(1.0, "Parsing completed successfully")
 
             return data
 

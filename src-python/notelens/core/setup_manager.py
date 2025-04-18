@@ -114,6 +114,38 @@ class SetupManager:
         logger.info("Completed setup stage: %s - %s",
                     self.current_stage.name, status)
 
+    def _determine_status_type(self, status: str) -> SetupStatusType:
+        """Determine the appropriate status type based on the status message."""
+        # Match status message to appropriate SetupStatusType
+        if "Reading database" in status:
+            return SetupStatusType.READING_DATABASE
+        elif "Database read" in status:
+            return SetupStatusType.DATABASE_READ
+        elif "Processing" in status:
+            return SetupStatusType.PROCESSING_NOTES
+        elif "Preparing" in status:
+            return SetupStatusType.PREPARING_NOTES
+        elif "Cleaning" in status:
+            return SetupStatusType.CLEANING_UP
+        elif "Services" in status:
+            return SetupStatusType.CHECKING_SERVICES
+        elif "Ready" in status:
+            return SetupStatusType.SERVICES_READY
+        elif "Completed" in status or "completed" in status or "Finished" in status:
+            return SetupStatusType.COMPLETED
+        elif "Failed" in status or "Error" in status:
+            return SetupStatusType.FAILED
+        else:
+            # Default based on current stage
+            if self.current_stage == SetupStage.INITIALIZING:
+                return SetupStatusType.CHECKING_SERVICES
+            elif self.current_stage == SetupStage.PARSING:
+                return SetupStatusType.READING_DATABASE
+            elif self.current_stage == SetupStage.PROCESSING:
+                return SetupStatusType.PROCESSING_NOTES
+            else:
+                return SetupStatusType.CHECKING_SERVICES
+
     async def _send_progress(self, status: str, current_note: Optional[str] = None):
         """Send progress update through the message bus."""
         logger.debug("Sending setup progress: %s", status)
@@ -125,7 +157,7 @@ class SetupManager:
             status=MessageStatus.IN_PROGRESS,
             payload=SetupProgressPayload(
                 stage=WSSetupStage(self.current_stage.name.lower()),
-                status_type=SetupStatusType.PROCESSING_NOTES if "Processing" in status else SetupStatusType.COMPLETED,
+                status_type=self._determine_status_type(status),
                 processing={
                     "total_notes": self.total_notes,
                     "processed_notes": self.processed_notes,
