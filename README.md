@@ -94,6 +94,27 @@ The application consists of three main parts:
 2. **Python Backend** (`src-python/`): Core search and indexing functionality
 3. **Tauri Integration** (`src-tauri/`): Desktop application wrapper
 
+### Development Script
+
+You can use the included dev script to start both frontend and backend services simultaneously:
+
+```bash
+./dev.sh
+```
+
+This script uses tmux to run both services in separate windows:
+- Window 0: Frontend (Tauri)
+- Window 1: Backend (Python)
+
+**Usage:**
+- Navigate between windows: `Ctrl+B` then window number (0 or 1)
+- Detach from session (leaving services running): `Ctrl+B` then `D`
+- Reattach to session: `tmux attach -t notelens-dev`
+
+**Stopping the services:**
+- Option 1: Press `Ctrl+C` in each tmux window to stop the services
+- Option 2: Kill the entire session with: `tmux kill-session -t notelens-dev`
+
 ## License
 
 [MIT License](LICENSE)
