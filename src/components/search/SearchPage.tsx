@@ -70,14 +70,26 @@ export const SearchPage: React.FC = () => {
   }
 
   if (selectedNote) {
+    // Format the date in a more readable format
+    const modifyDate = new Date(selectedNote.modify_time);
+    const formattedDate = modifyDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    const formattedTime = modifyDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
     return (
-      <div className="h-full flex flex-col">
-        <div className="py-3 px-4 border-b border-gray-200 dark:border-gray-900 flex items-center">
+      <div className="h-full flex flex-col bg-white dark:bg-black">
+        <div className="py-3 px-4 border-b border-gray-100 dark:border-gray-900 flex items-center sticky top-0 bg-white/95 dark:bg-black/95 backdrop-blur-sm z-10 shadow-sm">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleBackToResults}
-            className="mr-2"
+            className="mr-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
           >
             <svg
               className="w-4 h-4"
@@ -92,17 +104,45 @@ export const SearchPage: React.FC = () => {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back
+            <span>Back</span>
           </Button>
           <h2 className="text-base font-medium text-gray-900 dark:text-gray-100 ml-2 truncate">
             {selectedNote.title || "Untitled Note"}
           </h2>
+          {selectedNote.is_pinned && (
+            <svg
+              className="w-3.5 h-3.5 ml-2 text-gray-500 dark:text-gray-400 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M12 2L12 22M18 8.5L6 8.5" strokeLinecap="round" />
+            </svg>
+          )}
         </div>
-        <div className="flex-1 overflow-auto p-4">
-          <div
-            className="prose dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: selectedNote.html }}
-          />
+        
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+            {/* Note metadata */}
+            <div className="mb-6 text-xs text-gray-500 dark:text-gray-400 flex items-center space-x-4">
+              <span>Modified {formattedDate} at {formattedTime}</span>
+            </div>
+            
+            {/* Note content */}
+            <div 
+              className="prose dark:prose-invert prose-gray max-w-none 
+                prose-headings:font-medium prose-headings:text-gray-900 dark:prose-headings:text-gray-100
+                prose-p:text-gray-700 dark:prose-p:text-gray-300
+                prose-a:text-blue-600 dark:prose-a:text-blue-400
+                prose-strong:text-gray-900 dark:prose-strong:text-gray-50
+                prose-code:text-gray-900 dark:prose-code:text-gray-100 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800
+                prose-ol:text-gray-700 dark:prose-ol:text-gray-300
+                prose-ul:text-gray-700 dark:prose-ul:text-gray-300"
+              dangerouslySetInnerHTML={{ __html: selectedNote.html }}
+            />
+          </div>
         </div>
       </div>
     );
